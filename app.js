@@ -574,7 +574,47 @@ btnLibraryDetailClose.addEventListener("click", () => libraryDetailModal.classLi
 // KUYA DAVON — AI CHAT (Groq API)
 // =====================================================================
 const GROQ_API_KEY = "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";
-const GROQ_MODEL = "openai/gpt-oss-20b";
+// Preferred models in order of preference. The app will auto-discover
+// what's actually available from Groq and pick the first match.
+const PREFERRED_MODELS = [
+  "openai/gpt-oss-20b",
+  "openai/gpt-oss-120b",
+  "qwen/qwen3.6-27b",
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+];
+let GROQ_MODEL = null; // set dynamically on first use
+
+async function resolveGroqModel() {
+  if (GROQ_MODEL) return GROQ_MODEL;
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { Authorization: `Bearer ${GROQ_API_KEY}` },
+    });
+    if (!res.ok) throw new Error("status " + res.status);
+    const data = await res.json();
+    const available = (data.data || []).map((m) => m.id);
+    for (const pref of PREFERRED_MODELS) {
+      if (available.includes(pref)) {
+        GROQ_MODEL = pref;
+        console.log("[Kuya Davon] Using model:", GROQ_MODEL);
+        return GROQ_MODEL;
+      }
+    }
+    const chatModel = available.find((id) => !id.includes("whisper") && !id.includes("orpheus"));
+    if (chatModel) {
+      GROQ_MODEL = chatModel;
+      console.log("[Kuya Davon] Fallback model:", GROQ_MODEL);
+      return GROQ_MODEL;
+    }
+    throw new Error("No suitable model found");
+  } catch (err) {
+    console.warn("[Kuya Davon] Could not discover models, using hard fallback:", err);
+    GROQ_MODEL = PREFERRED_MODELS[0];
+    return GROQ_MODEL;
+  }
+}
 
 const MUSEUM_NAME = "Geronimo Berenguer de los Reyes (GBR), Jr. Museum";
 const MUSEUM_LOCATION = "General Trias, Philippines";
@@ -630,6 +670,7 @@ async function sendChatMessage() {
   btnChatSend.disabled = true;
 
   try {
+    const model = await resolveGroqModel();
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -637,7 +678,7 @@ async function sendChatMessage() {
         Authorization: `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        model: model,
         messages: [{ role: "system", content: buildKuyaDavonSystemPrompt() }, ...chatHistory],
         temperature: 0.4,
         max_tokens: 300,
