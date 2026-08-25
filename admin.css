@@ -161,6 +161,38 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; l
 .visits-chart-bar-label { font-size: 8.5px; color: var(--text-dim); }
 .visits-chart-bar-count { font-size: 9.5px; color: var(--text); font-weight: 700; }
 
+/* ---------------- AI Assistant Toggle ---------------- */
+.ai-assistant-toggle { margin: 14px 0 10px; }
+.toggle-row {
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer; user-select: none;
+}
+.toggle-row input { display: none; }
+.toggle-slider {
+  width: 40px; height: 22px; border-radius: 999px;
+  background: rgba(244,241,234,0.15); position: relative;
+  transition: background 0.2s ease; flex-shrink: 0;
+}
+.toggle-slider::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--text); transition: transform 0.2s ease;
+}
+.toggle-row input:checked + .toggle-slider { background: var(--frame-gold); }
+.toggle-row input:checked + .toggle-slider::after { transform: translateX(18px); background: #201a10; }
+.toggle-label { font-size: 13px; font-weight: 600; color: var(--text); }
+
+.ai-assistant-panel {
+  background: rgba(201,168,118,0.08); border: 1px solid rgba(201,168,118,0.25);
+  border-radius: 12px; padding: 14px; margin-bottom: 14px;
+}
+.ai-hint { font-size: 12px; color: var(--text-dim); margin: 0 0 10px; line-height: 1.45; }
+.ai-status {
+  font-size: 12px; text-align: center; margin: 8px 0 0; min-height: 18px;
+}
+.ai-status.success { color: var(--success); }
+.ai-status.error { color: var(--danger); }
+
 /* ---------------- Artworks Upload ---------------- */
 .artworks-layout {
   display: grid;
@@ -244,6 +276,34 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; l
   color: var(--frame-gold);
 }
 .artwork-row-info .artwork-source.builtin { background: rgba(244,241,234,0.1); color: var(--text-dim); }
+
+/* ---------------- Date Filter Bar ---------------- */
+.date-filter-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  margin: 12px 0 14px; padding: 12px 14px;
+  background: rgba(255,255,255,0.03); border-radius: 10px;
+  border: 1px solid rgba(244,241,234,0.08);
+}
+.date-filter-label { font-size: 12px; color: var(--text-dim); font-weight: 600; }
+.date-select {
+  background: rgba(255,255,255,0.06); color: var(--text);
+  border: 1px solid rgba(244,241,234,0.2); border-radius: 999px;
+  padding: 7px 12px; font-size: 12px; font-family: inherit;
+  cursor: pointer;
+}
+.date-input {
+  background: rgba(255,255,255,0.06); color: var(--text);
+  border: 1px solid rgba(244,241,234,0.2); border-radius: 8px;
+  padding: 6px 10px; font-size: 12px; font-family: inherit;
+}
+.custom-range {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.custom-range span { font-size: 12px; color: var(--text-dim); }
+.filter-count {
+  font-size: 11px; color: var(--frame-gold); font-weight: 700;
+  margin-left: auto;
+}
 
 /* ---------------- Admin Lists (leaderboard / notes) ---------------- */
 .admin-section-header {
