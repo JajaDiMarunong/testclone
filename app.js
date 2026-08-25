@@ -1,24 +1,17 @@
 // =====================================================================
-// FIREBASE (Realtime Database REST API — no SDK/API key needed for
-// basic reads/writes, but the database's rules must allow public
-// read/write for this to work. In the Firebase console, under
-// Realtime Database → Rules, that looks like:
-//   { "rules": { ".read": true, ".write": true } }
-// Fine for a prototype; lock it down before any real public launch.
+// MUSEUM AR COLLECTION — Main App
+// Artworks are now loaded dynamically (built-in + Firebase uploads)
 // =====================================================================
 const FIREBASE_URL = "https://gbrmuseumtest-default-rtdb.asia-southeast1.firebasedatabase.app";
-
-// =====================================================================
-// SITE BACKGROUND PHOTO (optional) — see note in previous version.
-// =====================================================================
 const BACKGROUND_IMAGE = "./assets/background.jpg";
 
-// =====================================================================
-// ARTWORK CONFIG
-// =====================================================================
-const artworks = [
+// -------------------------------------------------------------------
+// Built-in artworks (local assets). Uploaded artworks are merged
+// from Firebase at runtime.
+// -------------------------------------------------------------------
+const BUILTIN_ARTWORKS = [
   {
-    id: 0,
+    id: "builtin-mona",
     name: "Mona Lisa",
     image: "./assets/mona-marker.jpg",
     artist: "Leonardo da Vinci",
@@ -31,8 +24,8 @@ const artworks = [
       "opened to the public.",
     markerImage: "./assets/mona-marker.jpg",
     modelObj: "./assets/monalisa-centered.obj",
-    modelMtl: "./assets/monalisa.mtl", // proper texture this time — no more plain grey model
-    baseScale: 0.003, // this model's native size is much larger than the old one
+    modelMtl: "./assets/monalisa.mtl",
+    baseScale: 0.003,
     icon: "🖼️",
     unlocked: false,
     quizCompleted: false,
@@ -55,7 +48,7 @@ const artworks = [
     ],
   },
   {
-    id: 2,
+    id: "builtin-kiss",
     name: "The Kiss",
     image: "./assets/the-kiss.jpg",
     artist: "Gustav Klimt",
@@ -68,8 +61,8 @@ const artworks = [
       "gold, ornament, and pattern that blurs the line between clothing and abstract design. " +
       "It remains one of the defining images of the Vienna Secession movement and today hangs " +
       "in the Österreichische Galerie Belvedere in Vienna, Austria.",
-    markerImage: "./assets/the-kiss.jpg", // scannable, but has no model — excluded from the Home lock/unlock grid separately
-    modelObj: null, // no 3D model for this one — scanning just unlocks the description
+    markerImage: "./assets/the-kiss.jpg",
+    modelObj: null,
     baseScale: 0.06,
     icon: "💛",
     unlocked: false,
@@ -77,7 +70,7 @@ const artworks = [
     quiz: [],
   },
   {
-    id: 1,
+    id: "builtin-placeholder",
     name: "Second Artwork",
     image: "./assets/artwork-2.jpg",
     artist: null,
@@ -94,8 +87,11 @@ const artworks = [
   },
 ];
 
+// Mutable artworks array — populated by initArtworks()
+let artworks = [];
+
 // =====================================================================
-// BADGES (custom icons to be swapped in later — using placeholders now)
+// BADGES
 // =====================================================================
 const badges = {
   firstScan: {
@@ -118,9 +114,9 @@ function allBadgesEarned() {
   return Object.values(badges).every((b) => b.earned);
 }
 
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 // DOM references
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 const screenUsername = document.getElementById("screen-username");
 const usernameInput = document.getElementById("username-input");
 const btnUsernameSubmit = document.getElementById("btn-username-submit");
@@ -207,18 +203,6 @@ const btnOpenSettings = document.getElementById("btn-open-settings");
 const btnSettingsBack = document.getElementById("btn-settings-back");
 const settingsCurrentName = document.getElementById("settings-current-name");
 const settingsChangeName = document.getElementById("settings-change-name");
-const settingsAdmin = document.getElementById("settings-admin");
-
-const screenAdminLogin = document.getElementById("screen-admin-login");
-const btnAdminLoginBack = document.getElementById("btn-admin-login-back");
-const adminPasswordInput = document.getElementById("admin-password-input");
-const adminLoginError = document.getElementById("admin-login-error");
-const btnAdminLoginSubmit = document.getElementById("btn-admin-login-submit");
-
-const screenAdminPanel = document.getElementById("screen-admin-panel");
-const btnAdminPanelBack = document.getElementById("btn-admin-panel-back");
-const adminLeaderboardList = document.getElementById("admin-leaderboard-list");
-const adminNotesList = document.getElementById("admin-notes-list");
 
 const leaderboardList = document.getElementById("leaderboard-list");
 const notesBoardWrap = document.getElementById("notes-board-wrap");
@@ -256,11 +240,9 @@ const btnNoteViewClose = document.getElementById("btn-note-view-close");
 
 const arContainer = document.getElementById("ar-container");
 
-// ---------------------------------------------------------------------
-// Username / session (kept in memory for this visit — resets on
-// reload; add localStorage once this is hosted for real if you want
-// it remembered between visits)
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
+// Username / session
+// -------------------------------------------------------------------
 let currentUsername = null;
 let sessionStartTime = null;
 let leaderboardSubmitted = false;
@@ -277,7 +259,7 @@ function submitUsername() {
     return;
   }
   currentUsername = name;
-  if (!sessionStartTime) sessionStartTime = Date.now(); // only start the clock once
+  if (!sessionStartTime) sessionStartTime = Date.now();
   screenUsername.classList.add("hidden");
   if (returningToScreenAfterNameChange) {
     returningToScreenAfterNameChange();
@@ -296,13 +278,9 @@ settingsChangeName.addEventListener("click", () => {
   screenUsername.classList.remove("hidden");
 });
 
-settingsAdmin.addEventListener("click", showAdminLogin);
-
-// ---------------------------------------------------------------------
-// Device ID: identifies "this browser" so we can enforce one note per
-// device and let people edit/delete their own note later. Stored in
-// localStorage so it survives reloads — clearing site data resets it.
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
+// Device ID
+// -------------------------------------------------------------------
 function getDeviceId() {
   let id = localStorage.getItem("museum_device_id");
   if (!id) {
@@ -317,11 +295,6 @@ const homeBgLayer = document.getElementById("home-bg-layer");
 const homeBgImg = document.getElementById("home-bg-img");
 const homeBgOverlay = document.querySelector(".home-bg-overlay");
 
-// ---------------------------------------------------------------------
-// Optional background photo: test-load it; only apply if it exists.
-// This layer sits behind every screen except the camera screen (see
-// setBgLayerForScreen below).
-// ---------------------------------------------------------------------
 (function tryApplyBackground() {
   const test = new Image();
   test.onload = () => {
@@ -339,9 +312,9 @@ function setBgLayerForScreen(isCameraScreen) {
   if (isCameraScreen) chatPanel.classList.add("hidden");
 }
 
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 // Bottom nav
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 navButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     const tab = btn.dataset.tab;
@@ -356,9 +329,9 @@ function setActiveNav(tab) {
   navButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
 }
 
-// ---------------------------------------------------------------------
-// Gallery filter state ("all" | "locked" | "unlocked")
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
+// Gallery filter state
+// -------------------------------------------------------------------
 let activeFilter = "all";
 
 filterButtons.forEach((btn) => {
@@ -386,12 +359,9 @@ function hideFilterToast() {
   filterToast.classList.add("hidden");
 }
 
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 // Gallery rendering
-// Only artworks with a 3D model belong in the lock/unlock system here —
-// anything without a model (photo-and-description-only entries) lives
-// in the Library instead, browsable with no camera/AR involved at all.
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 function renderGallery() {
   galleryGrid.innerHTML = "";
 
@@ -439,9 +409,9 @@ function renderGallery() {
   progressLabel.textContent = `${unlockedCount} / ${galleryArtworks.length} unlocked`;
 }
 
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 // Screen switching
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 function hideAllScreens() {
   screenHome.classList.add("hidden");
   screenScanner.classList.add("hidden");
@@ -451,8 +421,6 @@ function hideAllScreens() {
   screenLeaderboard.classList.add("hidden");
   screenLibrary.classList.add("hidden");
   screenSettings.classList.add("hidden");
-  screenAdminLogin.classList.add("hidden");
-  screenAdminPanel.classList.add("hidden");
 }
 
 function showHome() {
@@ -475,7 +443,7 @@ function showScanner() {
 
 function showBadges() {
   hideAllScreens();
-  screenBadges.classList.add("hidden"); // toggled below after render
+  screenBadges.classList.add("hidden");
   renderBadges();
   screenBadges.classList.remove("hidden");
   bottomNav.classList.add("hidden");
@@ -508,23 +476,6 @@ function showSettings() {
   setBgLayerForScreen(false);
 }
 
-function showAdminLogin() {
-  hideAllScreens();
-  adminPasswordInput.value = "";
-  adminLoginError.classList.add("hidden");
-  screenAdminLogin.classList.remove("hidden");
-  bottomNav.classList.add("hidden");
-  setBgLayerForScreen(false);
-}
-
-function showAdminPanel() {
-  hideAllScreens();
-  screenAdminPanel.classList.remove("hidden");
-  bottomNav.classList.add("hidden");
-  setBgLayerForScreen(false);
-  loadAdminData();
-}
-
 btnBackHome.addEventListener("click", showHome);
 btnBadgesBack.addEventListener("click", showHome);
 btnOpenBadges.addEventListener("click", showBadges);
@@ -532,8 +483,6 @@ btnOpenLibrary.addEventListener("click", showLibrary);
 btnLibraryBack.addEventListener("click", showHome);
 btnOpenSettings.addEventListener("click", showSettings);
 btnSettingsBack.addEventListener("click", showHome);
-btnAdminLoginBack.addEventListener("click", showSettings);
-btnAdminPanelBack.addEventListener("click", showSettings);
 
 function showUnlockModal(art) {
   modalTitle.textContent = art.name;
@@ -549,9 +498,9 @@ btnViewCollection.addEventListener("click", () => {
   showHome();
 });
 
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 // Badge toast + awarding
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 let badgeToastTimer = null;
 function showBadgeToast(badge) {
   badgeToastIcon.textContent = badge.icon;
@@ -583,11 +532,9 @@ function renderBadges() {
     .join("");
 }
 
-// ---------------------------------------------------------------------
-// Library: every artwork's photo + full description, no camera, no 3D,
-// and independent of lock/unlock state — meant as a lightweight
-// fallback for lower-end devices or slow connections.
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
+// Library
+// -------------------------------------------------------------------
 function renderLibrary() {
   libraryList.innerHTML = artworks
     .map(
@@ -640,11 +587,6 @@ btnLibraryDetailClose.addEventListener("click", () => libraryDetailModal.classLi
 
 // =====================================================================
 // KUYA DAVON — AI CHAT (Groq API)
-// SECURITY NOTE: this API key lives in client-side code, which means
-// anyone who views this page's source can read and reuse it. Treat any
-// key placed here as effectively public. For real production use,
-// proxy these requests through your own backend/serverless function
-// instead so the key never ships to the browser.
 // =====================================================================
 const GROQ_API_KEY = "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";
 const GROQ_MODEL = "llama-3.1-8b-instant";
@@ -667,7 +609,7 @@ ${artworkList}
 Keep answers concise and conversational.`;
 }
 
-let chatHistory = []; // in-memory only for this visit — resets on reload
+let chatHistory = [];
 
 function addChatBubble(text, sender) {
   const bubble = document.createElement("div");
@@ -720,7 +662,7 @@ async function sendChatMessage() {
     addChatBubble(reply, "bot");
     chatHistory.push({ role: "assistant", content: reply });
 
-    if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20); // keep it from growing forever
+    if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
   } catch (err) {
     console.error("Kuya Davon chat error:", err);
     typingBubble.remove();
@@ -735,9 +677,9 @@ chatInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendChatMessage();
 });
 
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 // Artwork detail page
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 let currentDetailArtId = null;
 
 function openDetail(artworkId) {
@@ -764,9 +706,9 @@ btnTakeQuiz.addEventListener("click", () => {
   if (currentDetailArtId !== null) startQuiz(currentDetailArtId);
 });
 
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 // Quiz
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 let quizArtId = null;
 let quizIndex = 0;
 let quizScore = 0;
@@ -843,9 +785,9 @@ btnQuizBack.addEventListener("click", () => {
   else showHome();
 });
 
-// ---------------------------------------------------------------------
-// Firebase: leaderboard + notes (guestbook)
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
+// Firebase: leaderboard
+// -------------------------------------------------------------------
 async function loadLeaderboard() {
   leaderboardList.innerHTML = `<p class="leaderboard-status">Loading…</p>`;
   try {
@@ -890,292 +832,20 @@ async function submitLeaderboardEntry(name, timeSeconds) {
       body: JSON.stringify({ name, time: timeSeconds, timestamp: Date.now() }),
     });
   } catch (err) {
-    /* silently ignore — leaderboard is a bonus feature, shouldn't block the app */
+    /* silently ignore */
   }
 }
-
-// =====================================================================
-// ADMIN MODE
-// Note: this is a client-side password gate only — fine for keeping
-// casual visitors out, but anyone reading the page's source can see
-// the password check. Don't treat it as real access control.
-// =====================================================================
-const ADMIN_PASSWORD = "GBRMu5281";
-
-btnAdminLoginSubmit.addEventListener("click", () => {
-  if (adminPasswordInput.value === ADMIN_PASSWORD) {
-    showAdminPanel();
-  } else {
-    adminLoginError.classList.remove("hidden");
-  }
-});
-adminPasswordInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") btnAdminLoginSubmit.click();
-});
-
-async function loadAdminData() {
-  adminLeaderboardList.innerHTML = `<p class="leaderboard-status">Loading…</p>`;
-  adminNotesList.innerHTML = `<p class="leaderboard-status">Loading…</p>`;
-
-  await Promise.all([loadAdminStats(), loadAdminLeaderboard(), loadAdminNotes()]);
-}
-
-// ---- site activity stats: visits (day/3-day/week/month/all-time) + active-now ----
-let cachedVisitTimestamps = [];
-let currentVisitsRange = "week";
-
-async function loadAdminStats() {
-  await Promise.all([loadActiveNow(), loadVisitData()]);
-  renderVisitsChart(currentVisitsRange);
-}
-
-async function loadActiveNow() {
-  try {
-    const res = await fetch(`${FIREBASE_URL}/presence.json`);
-    const data = await res.json();
-    const entries = data ? Object.values(data) : [];
-    const activeCount = entries.filter((p) => Date.now() - p.timestamp < 60000).length;
-    document.getElementById("stat-active-now").textContent = activeCount;
-  } catch (err) {
-    console.error("Failed to load presence stats:", err);
-  }
-}
-
-async function loadVisitData() {
-  const DAY = 24 * 60 * 60 * 1000;
-  try {
-    const res = await fetch(`${FIREBASE_URL}/analytics_visits.json`);
-    const data = await res.json();
-    cachedVisitTimestamps = data ? Object.values(data).map((v) => v.timestamp).filter(Boolean) : [];
-
-    // Housekeeping: trim visit records older than ~35 days so this node
-    // doesn't grow forever — "This Month" is the widest granular view.
-    const staleCutoff = Date.now() - 35 * DAY;
-    const staleEntries = data ? Object.entries(data).filter(([, v]) => v.timestamp < staleCutoff) : [];
-    staleEntries.forEach(([key]) => {
-      fetch(`${FIREBASE_URL}/analytics_visits/${key}.json`, { method: "DELETE" }).catch(() => {});
-    });
-  } catch (err) {
-    console.error("Failed to load visit stats:", err);
-    cachedVisitTimestamps = [];
-  }
-}
-
-// Sunday-anchored week start for a given date (matches the requested
-// Sunday → Saturday layout, rather than a rolling "last 7 days" window).
-function getWeekStart(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - d.getDay()); // getDay(): 0 = Sunday
-  return d;
-}
-
-function renderVisitsChart(range) {
-  const DAY = 24 * 60 * 60 * 1000;
-  const timestamps = cachedVisitTimestamps;
-  let bars = [];
-
-  if (range === "week" || range === "lastweek") {
-    const thisWeekStart = getWeekStart(new Date());
-    const weekStart = range === "lastweek" ? new Date(thisWeekStart.getTime() - 7 * DAY) : thisWeekStart;
-    const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    for (let i = 0; i < 7; i++) {
-      const binStart = weekStart.getTime() + i * DAY;
-      const binEnd = binStart + DAY;
-      bars.push({
-        label: dayLabels[i],
-        count: timestamps.filter((t) => t >= binStart && t < binEnd).length,
-      });
-    }
-  } else if (range === "month") {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    // Bin by Sunday-aligned week-of-month (Wk1, Wk2, ...)
-    let weekStart = getWeekStart(monthStart);
-    let weekNum = 1;
-    while (weekStart.getTime() < monthEnd.getTime()) {
-      const binStart = Math.max(weekStart.getTime(), monthStart.getTime());
-      const binEnd = Math.min(weekStart.getTime() + 7 * DAY, monthEnd.getTime());
-      bars.push({
-        label: `Wk${weekNum}`,
-        count: timestamps.filter((t) => t >= binStart && t < binEnd).length,
-      });
-      weekStart = new Date(weekStart.getTime() + 7 * DAY);
-      weekNum++;
-    }
-  } else {
-    // All time — grouped by month, oldest to newest, capped at last 12
-    // months of data present so the chart doesn't get unreadably wide.
-    const byMonth = {};
-    timestamps.forEach((t) => {
-      const d = new Date(t);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      byMonth[key] = (byMonth[key] || 0) + 1;
-    });
-    const sortedKeys = Object.keys(byMonth).sort((a, b) => {
-      const [ya, ma] = a.split("-").map(Number);
-      const [yb, mb] = b.split("-").map(Number);
-      return ya - yb || ma - mb;
-    });
-    bars = sortedKeys.slice(-12).map((key) => {
-      const [y, m] = key.split("-").map(Number);
-      return { label: new Date(y, m, 1).toLocaleDateString(undefined, { month: "short" }), count: byMonth[key] };
-    });
-    if (bars.length === 0) bars = [{ label: "—", count: 0 }];
-  }
-
-  const maxCount = Math.max(1, ...bars.map((b) => b.count));
-  document.getElementById("visits-chart").innerHTML = bars
-    .map(
-      (b) => `
-    <div class="visits-chart-bar">
-      <span class="visits-chart-bar-count">${b.count}</span>
-      <div class="visits-chart-bar-fill" style="height: ${Math.max(4, (b.count / maxCount) * 60)}px;"></div>
-      <span class="visits-chart-bar-label">${b.label}</span>
-    </div>`
-    )
-    .join("");
-
-  const total = bars.reduce((sum, b) => sum + b.count, 0);
-  document.getElementById("visits-chart-total").textContent = `${total} visit${total === 1 ? "" : "s"} in this range`;
-}
-
-document.getElementById("visits-filter").addEventListener("click", (e) => {
-  const btn = e.target.closest(".filter-tab");
-  if (!btn) return;
-  currentVisitsRange = btn.dataset.range;
-  document.querySelectorAll("#visits-filter .filter-tab").forEach((t) => t.classList.toggle("active", t === btn));
-  renderVisitsChart(currentVisitsRange);
-});
-
-// ---- leaderboard management ----
-async function loadAdminLeaderboard() {
-  try {
-    const res = await fetch(`${FIREBASE_URL}/leaderboard.json`);
-    const data = await res.json();
-    const entries = data ? Object.entries(data) : [];
-    entries.sort((a, b) => a[1].time - b[1].time);
-
-    document.getElementById("stat-leaderboard-count").textContent = entries.length;
-
-    adminLeaderboardList.innerHTML = entries.length
-      ? entries
-          .map(
-            ([key, e]) => `
-      <div class="admin-row">
-        <div class="admin-row-info">
-          <div class="admin-row-name">${escapeHtml(e.name || "Anonymous")} — ${formatTime(e.time)}</div>
-          <div class="admin-row-date">${formatNoteDateFull(e.timestamp)}</div>
-        </div>
-        <button class="admin-delete-btn" data-path="leaderboard/${key}" data-label="this leaderboard entry">Delete</button>
-      </div>`
-          )
-          .join("")
-      : `<p class="leaderboard-status">No entries.</p>`;
-
-    attachAdminDeleteHandlers();
-  } catch (err) {
-    adminLeaderboardList.innerHTML = `<p class="leaderboard-status">Couldn't load leaderboard data.</p>`;
-  }
-}
-
-// ---- notes management ----
-async function loadAdminNotes() {
-  try {
-    const res = await fetch(`${FIREBASE_URL}/notes.json`);
-    const data = await res.json();
-    const entries = data ? Object.entries(data) : [];
-    entries.sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
-
-    document.getElementById("stat-notes-count").textContent = entries.length;
-
-    const typeIcon = { text: "📝", draw: "🎨", photo: "📷" };
-
-    adminNotesList.innerHTML = entries.length
-      ? entries
-          .map(
-            ([key, n]) => `
-      <div class="admin-row">
-        <div class="admin-row-info">
-          <div class="admin-row-name">${typeIcon[n.type] || "📝"} ${escapeHtml(n.name || "Anonymous")}</div>
-          <div class="admin-row-meta">${!n.type || n.type === "text" ? escapeHtml((n.text || "").slice(0, 40)) : `(${n.type})`}</div>
-          <div class="admin-row-date">${formatNoteDateFull(n.timestamp)}</div>
-        </div>
-        <button class="admin-delete-btn" data-path="notes/${key}" data-label="this note">Delete</button>
-      </div>`
-          )
-          .join("")
-      : `<p class="leaderboard-status">No notes.</p>`;
-
-    attachAdminDeleteHandlers();
-  } catch (err) {
-    adminNotesList.innerHTML = `<p class="leaderboard-status">Couldn't load guestbook data.</p>`;
-  }
-}
-
-function attachAdminDeleteHandlers() {
-  document.querySelectorAll(".admin-delete-btn").forEach((btn) => {
-    btn.replaceWith(btn.cloneNode(true)); // clear any previously attached listener before re-adding
-  });
-  document.querySelectorAll(".admin-delete-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      if (!confirm(`Delete ${btn.dataset.label}? This can't be undone.`)) return;
-      btn.disabled = true;
-      btn.textContent = "…";
-      await fetch(`${FIREBASE_URL}/${btn.dataset.path}.json`, { method: "DELETE" }).catch(() => {});
-      loadAdminData();
-    });
-  });
-}
-
-// ---- bulk clear ----
-document.getElementById("btn-clear-leaderboard").addEventListener("click", async () => {
-  if (!confirm("Delete ALL leaderboard entries? This can't be undone.")) return;
-  await fetch(`${FIREBASE_URL}/leaderboard.json`, { method: "DELETE" }).catch(() => {});
-  loadAdminData();
-});
-document.getElementById("btn-clear-notes").addEventListener("click", async () => {
-  if (!confirm("Delete ALL guestbook notes? This can't be undone.")) return;
-  await fetch(`${FIREBASE_URL}/notes.json`, { method: "DELETE" }).catch(() => {});
-  loadAdminData();
-});
-
-// ---- export as downloadable JSON ----
-function downloadJson(filename, data) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-document.getElementById("btn-export-leaderboard").addEventListener("click", async () => {
-  const res = await fetch(`${FIREBASE_URL}/leaderboard.json`);
-  downloadJson("leaderboard-export.json", await res.json());
-});
-document.getElementById("btn-export-notes").addEventListener("click", async () => {
-  const res = await fetch(`${FIREBASE_URL}/notes.json`);
-  downloadJson("guestbook-notes-export.json", await res.json());
-});
-
-document.getElementById("btn-refresh-admin").addEventListener("click", loadAdminData);
-
 
 // =====================================================================
 // GUESTBOOK BOARD
-// Notes are stored one-per-device at notes/{deviceId} in Firebase, so
-// "one post per device" and "edit/delete your own" both fall out
-// naturally: posting again just overwrites your own node.
 // =====================================================================
 const NOTE_COLORS = ["#f4d35e", "#f2a19b", "#a8d5ba", "#9fc6e0", "#c9a8d8", "#f4f1ea"];
-const DEFAULT_BOARD_SCALE = 0.5; // start zoomed out so notes are visible right away
+const DEFAULT_BOARD_SCALE = 0.5;
 let allNotesCache = [];
 let boardScale = DEFAULT_BOARD_SCALE;
 let boardX = 0;
 let boardY = 0;
-let editingMode = "text"; // "text" | "draw"
+let editingMode = "text";
 let selectedColor = NOTE_COLORS[0];
 let hasDrawing = false;
 
@@ -1244,7 +914,7 @@ function updateNewNoteButton() {
   btnNewNote.textContent = myNote ? "✏️ Edit My Note" : "+ New Note";
 }
 
-// ---- board pan + pinch-zoom (mouse-free touch, matches the AR gesture pattern) ----
+// ---- board pan + pinch-zoom ----
 let boardLastPinchDist = null;
 let boardLastTouchX = null;
 let boardLastTouchY = null;
@@ -1311,7 +981,7 @@ btnBoardZoomReset.addEventListener("click", () => {
   applyBoardTransform();
 });
 
-// ---- note editor (type or draw, pick a color) ----
+// ---- note editor ----
 let editingExistingNote = null;
 let drawCtx = null;
 
@@ -1377,7 +1047,7 @@ function setEditingMode(mode) {
   noteTextInput.classList.toggle("hidden", mode !== "text");
   noteDrawWrap.classList.toggle("hidden", mode !== "draw");
   notePhotoWrap.classList.toggle("hidden", mode !== "photo");
-  noteColorSwatches.classList.toggle("hidden", mode === "photo"); // polaroid look ignores the color swatch
+  noteColorSwatches.classList.toggle("hidden", mode === "photo");
 
   if (mode === "photo" && !capturedPhotoDataUrl) {
     startPhotoPreview();
@@ -1387,13 +1057,9 @@ function setEditingMode(mode) {
 }
 noteTabs.forEach((tab) => tab.addEventListener("click", () => setEditingMode(tab.dataset.mode)));
 
-// ---------------------------------------------------------------------
-// Photo notes: reuse MindAR's already-running camera feed for the live
-// preview instead of requesting a second getUserMedia stream — that
-// avoids the exact camera-conflict issue we hit earlier. We just point
-// a second <video> element at the SAME MediaStream object; no new
-// camera request is made at all.
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
+// Photo notes: reuse MindAR's already-running camera feed
+// -------------------------------------------------------------------
 function findArVideoElement() {
   return document.querySelector("#ar-container video");
 }
@@ -1415,8 +1081,6 @@ function startPhotoPreview() {
 }
 
 function stopPhotoPreview() {
-  // Only detach our preview reference — never stop the shared stream's
-  // tracks, since MindAR's own video is still using it.
   notePhotoPreview.srcObject = null;
 }
 
@@ -1463,7 +1127,6 @@ function openNoteEditor(existingNote) {
   hasDrawing = false;
   noteTextInput.value = "";
 
-  // reset photo capture state each time the editor opens
   capturedPhotoDataUrl = null;
   notePhotoResult.classList.add("hidden");
   notePhotoPreview.classList.remove("hidden");
@@ -1535,7 +1198,7 @@ btnNotePost.addEventListener("click", async () => {
       body: JSON.stringify(note),
     });
   } catch (err) {
-    /* ignore — will just not show up until connection is back */
+    /* ignore */
   }
 
   btnNotePost.disabled = false;
@@ -1574,8 +1237,6 @@ function formatTime(seconds) {
   return m > 0 ? `${m}m ${r}s` : `${r}s`;
 }
 
-// Short date for the tiny sticky-note tile (e.g. "Jul 31"), full date +
-// time for the popup views (e.g. "Jul 31, 2026 · 3:42 PM").
 function formatNoteDateShort(timestamp) {
   if (!timestamp) return "";
   return new Date(timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -1594,9 +1255,15 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// ---------------------------------------------------------------------
-// Loading an image element from a URL
-// ---------------------------------------------------------------------
+function getPinchDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+
+// =====================================================================
+// AR INITIALIZATION
+// =====================================================================
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -1607,16 +1274,9 @@ function loadImage(src) {
   });
 }
 
-// MindAR's compile step (feature extraction) is the slowest part of the
-// loading screen, and its cost scales with the marker image's pixel
-// count. Full-resolution photos (e.g. several thousand px wide) compile
-// much slower than needed — the tracker doesn't benefit from detail
-// beyond a moderate resolution. Downscaling to a capped size here cuts
-// loading time significantly with no visible quality loss in the AR
-// tracking itself.
 function downscaleForCompile(img, maxDim = 700) {
   const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-  if (scale === 1) return img; // already small enough, use as-is
+  if (scale === 1) return img;
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(img.width * scale);
   canvas.height = Math.round(img.height * scale);
@@ -1624,9 +1284,9 @@ function downscaleForCompile(img, maxDim = 700) {
   return canvas;
 }
 
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 // Gesture state: pinch-to-zoom + drag-to-rotate on the active target
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
 let activeModelEl = null;
 let activeBaseScale = 0.06;
 let currentScale = 0.06;
@@ -1642,12 +1302,6 @@ function applyTransform() {
 let lastPinchDistance = null;
 let lastTouchX = null;
 let lastTouchY = null;
-
-function getPinchDistance(touches) {
-  const dx = touches[0].clientX - touches[1].clientX;
-  const dy = touches[0].clientY - touches[1].clientY;
-  return Math.hypot(dx, dy);
-}
 
 window.addEventListener(
   "touchstart",
@@ -1701,18 +1355,15 @@ window.addEventListener(
   { passive: true }
 );
 
-// ---------------------------------------------------------------------
-// Handling a target being recognized / lost by the camera
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
+// Target found / lost
+// -------------------------------------------------------------------
 function getOrCreateModelEntity(art, targetIndex, targetEl) {
   if (!art.modelObj) return null;
 
   let modelEl = document.getElementById(`model-${targetIndex}`);
-  if (modelEl) return modelEl; // already created on a previous scan
+  if (modelEl) return modelEl;
 
-  // Created lazily, right now, instead of at initial scene setup — this
-  // is what lets the camera start quickly without waiting for every
-  // artwork's (potentially large) model file to download first.
   modelEl = document.createElement("a-entity");
   modelEl.setAttribute("id", `model-${targetIndex}`);
   modelEl.setAttribute(
@@ -1749,15 +1400,11 @@ function handleTargetFound(art, targetIndex, targetEl) {
   if (firstTimeEver) awardBadge("firstScan");
 
   if (art.modelObj) {
-    // Gallery artwork: only celebrate the first time; repeat scans just
-    // show the model again (no repeated popup, no home card involved).
     if (!wasAlreadyUnlocked) {
       showUnlockModal(art);
       checkCollectionComplete();
     }
   } else {
-    // Library-only artwork (no model, no home card): show its
-    // description on every scan, since this popup is its only feedback.
     showUnlockModal(art);
   }
 }
@@ -1778,22 +1425,15 @@ function checkCollectionComplete() {
   }
 }
 
-// ---------------------------------------------------------------------
-// Build the AR scene from every scannable artwork's marker image.
-// Tracking is tuned (filterMinCF/filterBeta/missTolerance) to smooth
-// out camera-shake jitter — MindAR uses a One Euro Filter internally;
-// lowering filterMinCF trades a little responsiveness for stability.
-// ---------------------------------------------------------------------
+// -------------------------------------------------------------------
+// Build AR scene
+// -------------------------------------------------------------------
 async function initAR() {
   const scannableAll = artworks.filter((a) => a.markerImage);
 
   loadingText.textContent = "Loading artwork images…";
   const results = await Promise.allSettled(scannableAll.map((a) => loadImage(a.markerImage)));
 
-  // A missing/broken image shouldn't take down the whole camera — skip it
-  // and continue with whatever loaded successfully, but log it clearly so
-  // it's easy to spot in the console (usually a filename/case mismatch,
-  // e.g. "The-Kiss.jpg" uploaded but code expects "the-kiss.jpg").
   const scannable = [];
   const images = [];
   results.forEach((result, i) => {
@@ -1853,12 +1493,49 @@ async function initAR() {
   });
 }
 
-// ---------------------------------------------------------------------
+// =====================================================================
+// DYNAMIC ARTWORK LOADING (built-in + Firebase uploads)
+// =====================================================================
+async function initArtworks() {
+  // Start with built-in artworks
+  let merged = BUILTIN_ARTWORKS.map((a) => ({ ...a }));
+
+  // Fetch uploaded artworks from Firebase
+  try {
+    const res = await fetch(`${FIREBASE_URL}/artworks.json`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data) {
+        const uploaded = Object.entries(data).map(([key, val]) => ({
+          id: key,
+          name: val.name,
+          image: val.image,
+          artist: val.artist,
+          year: val.year,
+          location: val.location,
+          details: val.details,
+          markerImage: val.image,       // uploaded image IS the marker
+          modelObj: null,               // no 3D model for uploads
+          modelMtl: null,
+          baseScale: val.baseScale || 0.06,
+          icon: val.icon || "🖼️",
+          unlocked: false,
+          quizCompleted: false,
+          quiz: val.quiz || [],
+        }));
+        merged = merged.concat(uploaded);
+      }
+    }
+  } catch (err) {
+    console.warn("Could not load uploaded artworks from Firebase:", err);
+  }
+
+  artworks = merged;
+}
+
+// =====================================================================
 // ANALYTICS: page visits + presence heartbeat
-// These run independently of the AR camera/username flow — they start
-// as soon as the page loads, since "site visits" and "active users"
-// should count anyone browsing, not just people who've scanned something.
-// ---------------------------------------------------------------------
+// =====================================================================
 function recordVisit() {
   fetch(`${FIREBASE_URL}/analytics_visits.json`, {
     method: "POST",
@@ -1877,26 +1554,24 @@ function sendHeartbeat() {
 
 function startPresenceHeartbeat() {
   sendHeartbeat();
-  setInterval(sendHeartbeat, 20000); // every 20s — admin treats <60s old as "active now"
+  setInterval(sendHeartbeat, 20000);
 }
 
 recordVisit();
 startPresenceHeartbeat();
 
-// ---------------------------------------------------------------------
-// Boot
-// ---------------------------------------------------------------------
-navigator.mediaDevices?.getUserMedia?.({ video: true })
-  .then((stream) => {
-    // This was only a permission check — release it immediately so the
-    // camera is free when MindAR opens its own stream for real tracking.
-    // Holding both open at once was causing "camera access needed" to
-    // show even when permission had already been granted.
-    stream.getTracks().forEach((track) => track.stop());
-    return initAR();
-  })
-  .catch((err) => {
-    console.error("Camera/AR init failed:", err);
-    loadingScreen.classList.add("hidden");
-    permissionError.classList.remove("hidden");
-  });
+// =====================================================================
+// BOOT
+// =====================================================================
+initArtworks().then(() => {
+  navigator.mediaDevices?.getUserMedia?.({ video: true })
+    .then((stream) => {
+      stream.getTracks().forEach((track) => track.stop());
+      return initAR();
+    })
+    .catch((err) => {
+      console.error("Camera/AR init failed:", err);
+      loadingScreen.classList.add("hidden");
+      permissionError.classList.remove("hidden");
+    });
+});
