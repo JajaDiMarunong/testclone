@@ -34,18 +34,7 @@ const BUILTIN_ARTWORKS = [
     icon: "💛",
     hasModel: false,
   },
-  {
-    id: "builtin-placeholder",
-    name: "Second Artwork",
-    image: "./assets/artwork-2.jpg",
-    artist: null,
-    year: null,
-    location: null,
-    details: "Details will appear here once this artwork is added.",
-    baseScale: 0.06,
-    icon: "🗿",
-    hasModel: false,
-  },
+
 ];
 
 // -------------------------------------------------------------------
@@ -180,6 +169,7 @@ btnAiSubmit.addEventListener("click", async () => {
   btnAiSubmit.disabled = true;
 
   try {
+    console.log("[AI] Sending request to Groq API…");
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -206,16 +196,48 @@ Rules:
       }),
     });
 
-    if (!res.ok) throw new Error("API error " + res.status);
+    console.log("[AI] Response status:", res.status, res.statusText);
+
+    if (!res.ok) {
+      let errBody = "";
+      try { errBody = await res.text(); } catch (e) {}
+      console.error("[AI] API error body:", errBody);
+      throw new Error(`API returned ${res.status} ${res.statusText}. ${errBody}`);
+    }
+
     const data = await res.json();
+    console.log("[AI] Raw response:", data);
+
     const raw = data.choices?.[0]?.message?.content?.trim() || "";
+    console.log("[AI] Content text:", raw);
+
+    if (!raw) {
+      throw new Error("AI returned empty response.");
+    }
 
     // Extract JSON from response (handle markdown fences)
     let jsonStr = raw;
     const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fenceMatch) jsonStr = fenceMatch[1].trim();
 
-    const parsed = JSON.parse(jsonStr);
+    // Also try to find JSON between curly braces if the above didn't work
+    if (!jsonStr.startsWith("{")) {
+      const braceMatch = raw.match(/\{[\s\S]*\}/);
+      if (braceMatch) jsonStr = braceMatch[0];
+    }
+
+    console.log("[AI] Parsed JSON string:", jsonStr);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      console.error("[AI] JSON parse failed:", parseErr);
+      console.error("[AI] String that failed:", jsonStr);
+      throw new Error(`AI response was not valid JSON. Raw: ${raw.substring(0, 200)}`);
+    }
+
+    console.log("[AI] Parsed object:", parsed);
 
     // Fill form fields
     if (parsed.title) document.getElementById("artwork-name").value = parsed.title;
@@ -224,17 +246,16 @@ Rules:
     if (parsed.location !== undefined) document.getElementById("artwork-location").value = parsed.location || "";
     if (parsed.description) document.getElementById("artwork-details").value = parsed.description;
 
-    aiModalStatus.textContent = "Fields filled! You can close this and review.";
+    aiModalStatus.textContent = "✅ Fields filled! Closing…";
     aiModalStatus.className = "ai-status success";
 
-    // Auto-close after a short delay so user sees the success message
     setTimeout(() => {
       aiModal.classList.add("hidden");
     }, 1200);
 
   } catch (err) {
-    console.error("AI fill error:", err);
-    aiModalStatus.textContent = "Could not parse result. Try pasting clearer info.";
+    console.error("[AI] Full error:", err);
+    aiModalStatus.textContent = err.message || "Unknown error. Check browser console (F12) for details.";
     aiModalStatus.className = "ai-status error";
   } finally {
     btnAiSubmit.disabled = false;
