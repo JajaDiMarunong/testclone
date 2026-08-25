@@ -3,10 +3,11 @@
 // =====================================================================
 const FIREBASE_URL = "https://gbrmuseumtest-default-rtdb.asia-southeast1.firebasedatabase.app";
 const ADMIN_PASSWORD = "GBRMu5281";
+const GROQ_API_KEY = "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";
+const GROQ_MODEL = "llama-3.1-8b-instant";
 
 // -------------------------------------------------------------------
-// Built-in artworks (mirrors the original app.js defaults)
-// These are shown in the list but cannot be deleted from here.
+// Built-in artworks
 // -------------------------------------------------------------------
 const BUILTIN_ARTWORKS = [
   {
@@ -68,12 +69,39 @@ const adminLeaderboardList = document.getElementById("admin-leaderboard-list");
 const adminNotesList = document.getElementById("admin-notes-list");
 const adminArtworksList = document.getElementById("admin-artworks-list");
 
+// AI Assistant refs
+const aiAssistantEnabled = document.getElementById("ai-assistant-enabled");
+const aiAssistantPanel = document.getElementById("ai-assistant-panel");
+const aiQueryInput = document.getElementById("ai-query-input");
+const btnAiFill = document.getElementById("btn-ai-fill");
+const aiStatus = document.getElementById("ai-status");
+
+// Form refs
 const imageUploadZone = document.getElementById("image-upload-zone");
 const artworkImageInput = document.getElementById("artwork-image");
 const imagePreview = document.getElementById("image-preview");
 const uploadPlaceholder = document.getElementById("upload-placeholder");
 const btnUploadArtwork = document.getElementById("btn-upload-artwork");
 const uploadStatus = document.getElementById("upload-status");
+
+// Date filter refs
+const lbDateFilter = document.getElementById("lb-date-filter");
+const lbCustomRange = document.getElementById("lb-custom-range");
+const lbDateFrom = document.getElementById("lb-date-from");
+const lbDateTo = document.getElementById("lb-date-to");
+const lbApplyCustom = document.getElementById("lb-apply-custom");
+const lbFilterCount = document.getElementById("lb-filter-count");
+
+const notesDateFilter = document.getElementById("notes-date-filter");
+const notesCustomRange = document.getElementById("notes-custom-range");
+const notesDateFrom = document.getElementById("notes-date-from");
+const notesDateTo = document.getElementById("notes-date-to");
+const notesApplyCustom = document.getElementById("notes-apply-custom");
+const notesFilterCount = document.getElementById("notes-filter-count");
+
+// Cached data for filtering
+let cachedLeaderboard = [];
+let cachedNotes = [];
 
 // -------------------------------------------------------------------
 // Login
@@ -121,6 +149,81 @@ async function loadAllData() {
     loadAdminArtworks(),
   ]);
 }
+
+// =====================================================================
+// AI ASSISTANT — Auto-fill artwork upload fields
+// =====================================================================
+aiAssistantEnabled.addEventListener("change", () => {
+  aiAssistantPanel.classList.toggle("hidden", !aiAssistantEnabled.checked);
+});
+
+btnAiFill.addEventListener("click", async () => {
+  const query = aiQueryInput.value.trim();
+  if (!query) {
+    aiStatus.textContent = "Please describe the artwork first.";
+    aiStatus.className = "ai-status error";
+    return;
+  }
+
+  aiStatus.textContent = "Thinking…";
+  aiStatus.className = "ai-status";
+  btnAiFill.disabled = true;
+
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: `You are a museum cataloging assistant. The user will describe an artwork. You must extract the following fields and return ONLY a valid JSON object with these exact keys: title, artist, year, location, description.
+
+Rules:
+- If a field cannot be determined, use null (not empty string).
+- The description should be a concise but informative paragraph (2-4 sentences) about the artwork.
+- Do not include markdown, explanations, or anything outside the JSON.
+- Example output: {"title":"The Starry Night","artist":"Vincent van Gogh","year":"1889","location":"MoMA, New York","description":"A swirling night sky over a village, painted by Van Gogh in 1889. One of the most recognized works in Western art."}`,
+          },
+          { role: "user", content: query },
+        ],
+        temperature: 0.3,
+        max_tokens: 400,
+      }),
+    });
+
+    if (!res.ok) throw new Error("API error " + res.status);
+    const data = await res.json();
+    const raw = data.choices?.[0]?.message?.content?.trim() || "";
+
+    // Extract JSON from response (handle possible markdown fences)
+    let jsonStr = raw;
+    const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) jsonStr = fenceMatch[1].trim();
+
+    const parsed = JSON.parse(jsonStr);
+
+    // Fill form fields
+    if (parsed.title) document.getElementById("artwork-name").value = parsed.title;
+    if (parsed.artist !== undefined) document.getElementById("artwork-artist").value = parsed.artist || "";
+    if (parsed.year !== undefined) document.getElementById("artwork-year").value = parsed.year || "";
+    if (parsed.location !== undefined) document.getElementById("artwork-location").value = parsed.location || "";
+    if (parsed.description) document.getElementById("artwork-details").value = parsed.description;
+
+    aiStatus.textContent = "Fields filled! Review and upload when ready.";
+    aiStatus.className = "ai-status success";
+  } catch (err) {
+    console.error("AI fill error:", err);
+    aiStatus.textContent = "Could not parse result. Try a clearer description.";
+    aiStatus.className = "ai-status error";
+  } finally {
+    btnAiFill.disabled = false;
+  }
+});
 
 // =====================================================================
 // STATS
@@ -262,6 +365,71 @@ visitsFilter.addEventListener("click", (e) => {
 });
 
 // =====================================================================
+// DATE FILTERING UTILITIES
+// =====================================================================
+function getDateRange(filterValue, customFrom, customTo) {
+  const now = new Date();
+  const DAY = 24 * 60 * 60 * 1000;
+  let start = 0;
+  let end = Date.now();
+
+  switch (filterValue) {
+    case "today": {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      start = d.getTime();
+      end = start + DAY;
+      break;
+    }
+    case "yesterday": {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      start = d.getTime();
+      end = start + DAY;
+      break;
+    }
+    case "week": {
+      const ws = getWeekStart(now);
+      start = ws.getTime();
+      end = start + 7 * DAY;
+      break;
+    }
+    case "lastweek": {
+      const ws = getWeekStart(now);
+      start = ws.getTime() - 7 * DAY;
+      end = ws.getTime();
+      break;
+    }
+    case "month": {
+      start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
+      break;
+    }
+    case "lastmonth": {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+      end = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      break;
+    }
+    case "custom": {
+      if (customFrom) start = new Date(customFrom).getTime();
+      if (customTo) end = new Date(customTo).getTime() + DAY - 1;
+      break;
+    }
+    default:
+      // "all" — no filter
+      start = 0;
+      end = Infinity;
+  }
+  return { start, end };
+}
+
+function filterByDate(entries, filterValue, customFrom, customTo) {
+  const { start, end } = getDateRange(filterValue, customFrom, customTo);
+  return entries.filter(([, e]) => {
+    const ts = e.timestamp || 0;
+    return ts >= start && ts <= end;
+  });
+}
+
+// =====================================================================
 // LEADERBOARD
 // =====================================================================
 async function loadAdminLeaderboard() {
@@ -269,13 +437,27 @@ async function loadAdminLeaderboard() {
   try {
     const res = await fetch(`${FIREBASE_URL}/leaderboard.json`);
     const data = await res.json();
-    const entries = data ? Object.entries(data) : [];
-    entries.sort((a, b) => a[1].time - b[1].time);
+    cachedLeaderboard = data ? Object.entries(data) : [];
+    cachedLeaderboard.sort((a, b) => a[1].time - b[1].time);
+    renderLeaderboardList();
+  } catch (err) {
+    adminLeaderboardList.innerHTML = `<p class="leaderboard-status">Couldn't load leaderboard data.</p>`;
+  }
+}
 
-    adminLeaderboardList.innerHTML = entries.length
-      ? entries
-          .map(
-            ([key, e]) => `
+function renderLeaderboardList() {
+  const filterValue = lbDateFilter.value;
+  const customFrom = lbDateFrom.value;
+  const customTo = lbDateTo.value;
+
+  const filtered = filterByDate(cachedLeaderboard, filterValue, customFrom, customTo);
+
+  lbFilterCount.textContent = filtered.length > 0 ? `${filtered.length} result${filtered.length === 1 ? "" : "s"}` : "";
+
+  adminLeaderboardList.innerHTML = filtered.length
+    ? filtered
+        .map(
+          ([key, e]) => `
       <div class="admin-row">
         <div class="admin-row-info">
           <div class="admin-row-name">${escapeHtml(e.name || "Anonymous")} — ${formatTime(e.time)}</div>
@@ -283,15 +465,19 @@ async function loadAdminLeaderboard() {
         </div>
         <button class="admin-delete-btn" data-path="leaderboard/${key}" data-label="this leaderboard entry">Delete</button>
       </div>`
-          )
-          .join("")
-      : `<p class="leaderboard-status">No entries.</p>`;
+        )
+        .join("")
+    : `<p class="leaderboard-status">No entries match this date filter.</p>`;
 
-    attachDeleteHandlers();
-  } catch (err) {
-    adminLeaderboardList.innerHTML = `<p class="leaderboard-status">Couldn't load leaderboard data.</p>`;
-  }
+  attachDeleteHandlers();
 }
+
+// Leaderboard date filter events
+lbDateFilter.addEventListener("change", () => {
+  lbCustomRange.classList.toggle("hidden", lbDateFilter.value !== "custom");
+  renderLeaderboardList();
+});
+lbApplyCustom.addEventListener("click", renderLeaderboardList);
 
 // =====================================================================
 // NOTES
@@ -301,15 +487,29 @@ async function loadAdminNotes() {
   try {
     const res = await fetch(`${FIREBASE_URL}/notes.json`);
     const data = await res.json();
-    const entries = data ? Object.entries(data) : [];
-    entries.sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+    cachedNotes = data ? Object.entries(data) : [];
+    cachedNotes.sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+    renderNotesList();
+  } catch (err) {
+    adminNotesList.innerHTML = `<p class="leaderboard-status">Couldn't load guestbook data.</p>`;
+  }
+}
 
-    const typeIcon = { text: "📝", draw: "🎨", photo: "📷" };
+function renderNotesList() {
+  const filterValue = notesDateFilter.value;
+  const customFrom = notesDateFrom.value;
+  const customTo = notesDateTo.value;
 
-    adminNotesList.innerHTML = entries.length
-      ? entries
-          .map(
-            ([key, n]) => `
+  const filtered = filterByDate(cachedNotes, filterValue, customFrom, customTo);
+
+  notesFilterCount.textContent = filtered.length > 0 ? `${filtered.length} result${filtered.length === 1 ? "" : "s"}` : "";
+
+  const typeIcon = { text: "📝", draw: "🎨", photo: "📷" };
+
+  adminNotesList.innerHTML = filtered.length
+    ? filtered
+        .map(
+          ([key, n]) => `
       <div class="admin-row">
         <div class="admin-row-info">
           <div class="admin-row-name">${typeIcon[n.type] || "📝"} ${escapeHtml(n.name || "Anonymous")}</div>
@@ -318,15 +518,19 @@ async function loadAdminNotes() {
         </div>
         <button class="admin-delete-btn" data-path="notes/${key}" data-label="this note">Delete</button>
       </div>`
-          )
-          .join("")
-      : `<p class="leaderboard-status">No notes.</p>`;
+        )
+        .join("")
+    : `<p class="leaderboard-status">No notes match this date filter.</p>`;
 
-    attachDeleteHandlers();
-  } catch (err) {
-    adminNotesList.innerHTML = `<p class="leaderboard-status">Couldn't load guestbook data.</p>`;
-  }
+  attachDeleteHandlers();
 }
+
+// Notes date filter events
+notesDateFilter.addEventListener("change", () => {
+  notesCustomRange.classList.toggle("hidden", notesDateFilter.value !== "custom");
+  renderNotesList();
+});
+notesApplyCustom.addEventListener("click", renderNotesList);
 
 // =====================================================================
 // ARTWORKS
