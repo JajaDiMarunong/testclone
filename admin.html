@@ -84,6 +84,23 @@
           <h3>Upload Artwork</h3>
           <p class="modal-desc">Images are stored as base64 in Firebase. Keep them under ~1MB for best performance.</p>
 
+          <!-- AI Assistant Toggle -->
+          <div class="ai-assistant-toggle">
+            <label class="toggle-row">
+              <input type="checkbox" id="ai-assistant-enabled" />
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">🤖 AI Assistant — Auto-fill artwork info</span>
+            </label>
+          </div>
+
+          <!-- AI Assistant Panel (hidden by default) -->
+          <div id="ai-assistant-panel" class="ai-assistant-panel hidden">
+            <p class="ai-hint">Describe the artwork and the AI will fill the fields for you. You can still edit before uploading.</p>
+            <input id="ai-query-input" class="text-input" type="text" placeholder="e.g. The Starry Night by Vincent van Gogh, 1889" />
+            <button id="btn-ai-fill" class="btn-secondary btn-small">✨ Auto-Fill Fields</button>
+            <p id="ai-status" class="ai-status"></p>
+          </div>
+
           <div class="form-group">
             <label>Artwork Photo <span class="required">*</span></label>
             <div class="image-upload-zone" id="image-upload-zone">
@@ -147,6 +164,29 @@
           <button id="btn-clear-leaderboard" class="btn-tiny danger">Clear All</button>
         </div>
       </div>
+
+      <!-- Date Filter -->
+      <div class="date-filter-bar">
+        <span class="date-filter-label">Filter by date:</span>
+        <select id="lb-date-filter" class="date-select">
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="week">This Week</option>
+          <option value="lastweek">Last Week</option>
+          <option value="month">This Month</option>
+          <option value="lastmonth">Last Month</option>
+          <option value="custom">Custom Range…</option>
+        </select>
+        <div id="lb-custom-range" class="custom-range hidden">
+          <input type="date" id="lb-date-from" class="date-input" />
+          <span>to</span>
+          <input type="date" id="lb-date-to" class="date-input" />
+          <button id="lb-apply-custom" class="btn-tiny">Apply</button>
+        </div>
+        <span id="lb-filter-count" class="filter-count"></span>
+      </div>
+
       <div id="admin-leaderboard-list" class="admin-list"></div>
     </section>
 
@@ -159,6 +199,29 @@
           <button id="btn-clear-notes" class="btn-tiny danger">Clear All</button>
         </div>
       </div>
+
+      <!-- Date Filter -->
+      <div class="date-filter-bar">
+        <span class="date-filter-label">Filter by date:</span>
+        <select id="notes-date-filter" class="date-select">
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="week">This Week</option>
+          <option value="lastweek">Last Week</option>
+          <option value="month">This Month</option>
+          <option value="lastmonth">Last Month</option>
+          <option value="custom">Custom Range…</option>
+        </select>
+        <div id="notes-custom-range" class="custom-range hidden">
+          <input type="date" id="notes-date-from" class="date-input" />
+          <span>to</span>
+          <input type="date" id="notes-date-to" class="date-input" />
+          <button id="notes-apply-custom" class="btn-tiny">Apply</button>
+        </div>
+        <span id="notes-filter-count" class="filter-count"></span>
+      </div>
+
       <div id="admin-notes-list" class="admin-list"></div>
     </section>
 
