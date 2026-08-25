@@ -26,7 +26,7 @@ html, body {
 
 h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: 0.01em; }
 
-/* ---------------- Login overlay ---------------- */
+/* ---------------- Login / Modal overlays ---------------- */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 20;
   background: rgba(6, 5, 5, 0.75);
@@ -43,6 +43,19 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; l
 .modal-eyebrow { text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.14em; color: var(--frame-gold); margin: 0 0 6px 0; }
 .modal-card h2 { font-size: 21px; margin: 0 0 8px 0; }
 .modal-desc { font-size: 13px; color: var(--text-dim); line-height: 1.5; margin: 0 0 6px 0; }
+
+/* AI modal specific */
+.ai-modal-card {
+  max-width: 420px;
+  text-align: left;
+}
+.ai-modal-card h2 { text-align: left; }
+.ai-modal-card .modal-desc { text-align: left; margin-bottom: 14px; }
+.ai-modal-card .modal-actions {
+  display: flex; gap: 10px; margin-top: 14px;
+}
+.ai-modal-card .modal-actions .btn-primary { margin-top: 0; flex: 1; }
+.ai-modal-card .modal-actions .btn-secondary { flex: 1; }
 
 /* ---------------- Buttons & Inputs ---------------- */
 .btn-primary, .btn-secondary, .btn-tiny {
@@ -161,32 +174,7 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; l
 .visits-chart-bar-label { font-size: 8.5px; color: var(--text-dim); }
 .visits-chart-bar-count { font-size: 9.5px; color: var(--text); font-weight: 700; }
 
-/* ---------------- AI Assistant Toggle ---------------- */
-.ai-assistant-toggle { margin: 14px 0 10px; }
-.toggle-row {
-  display: flex; align-items: center; gap: 10px;
-  cursor: pointer; user-select: none;
-}
-.toggle-row input { display: none; }
-.toggle-slider {
-  width: 40px; height: 22px; border-radius: 999px;
-  background: rgba(244,241,234,0.15); position: relative;
-  transition: background 0.2s ease; flex-shrink: 0;
-}
-.toggle-slider::after {
-  content: ""; position: absolute; top: 2px; left: 2px;
-  width: 18px; height: 18px; border-radius: 50%;
-  background: var(--text); transition: transform 0.2s ease;
-}
-.toggle-row input:checked + .toggle-slider { background: var(--frame-gold); }
-.toggle-row input:checked + .toggle-slider::after { transform: translateX(18px); background: #201a10; }
-.toggle-label { font-size: 13px; font-weight: 600; color: var(--text); }
-
-.ai-assistant-panel {
-  background: rgba(201,168,118,0.08); border: 1px solid rgba(201,168,118,0.25);
-  border-radius: 12px; padding: 14px; margin-bottom: 14px;
-}
-.ai-hint { font-size: 12px; color: var(--text-dim); margin: 0 0 10px; line-height: 1.45; }
+/* ---------------- AI Status ---------------- */
 .ai-status {
   font-size: 12px; text-align: center; margin: 8px 0 0; min-height: 18px;
 }
@@ -299,6 +287,7 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; l
 .custom-range {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
+.custom-range.hidden { display: none; }
 .custom-range span { font-size: 12px; color: var(--text-dim); }
 .filter-count {
   font-size: 11px; color: var(--frame-gold); font-weight: 700;
