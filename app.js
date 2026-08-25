@@ -69,22 +69,7 @@ const BUILTIN_ARTWORKS = [
     quizCompleted: false,
     quiz: [],
   },
-  {
-    id: "builtin-placeholder",
-    name: "Second Artwork",
-    image: "./assets/artwork-2.jpg",
-    artist: null,
-    year: null,
-    location: null,
-    details: "Details will appear here once this artwork is added.",
-    markerImage: null,
-    modelObj: null,
-    baseScale: 0.06,
-    icon: "🗿",
-    unlocked: false,
-    quizCompleted: false,
-    quiz: [],
-  },
+
 ];
 
 // Mutable artworks array — populated by initArtworks()
