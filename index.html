@@ -4,27 +4,25 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>Museum AR Collection</title>
-<link rel="stylesheet" href="style.css?v=18" />
+<link rel="stylesheet" href="style.css?v=19" />
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js" defer></script>
 <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v7.0.0/dist/aframe-extras.min.js" defer></script>
+<base target="_blank">
 </head>
 <body>
 
   <!-- AR base layer: injected by app.js once marker images are compiled -->
   <div id="ar-container"></div>
 
-  <!-- Shared background layer: sits behind every screen except the AR
-       camera screen (which needs to show the live camera instead).
-       Fixes the "camera bleeds through" bug for any screen, present or
-       future, instead of patching it per-screen. -->
+  <!-- Shared background layer -->
   <div id="home-bg-layer" class="home-bg-layer">
     <img id="home-bg-img" src="" alt="" />
     <div class="home-bg-overlay"></div>
   </div>
 
   <!-- ============================================================
-       USERNAME PROMPT (shown once per visit, before anything else)
+       USERNAME PROMPT
        ============================================================ -->
   <div id="screen-username" class="modal-overlay">
     <div class="modal-card">
@@ -56,7 +54,7 @@
       <div class="progress-track">
         <div id="progress-fill" class="progress-fill"></div>
       </div>
-      <span id="progress-label" class="progress-label">0 / 2 unlocked</span>
+      <span id="progress-label" class="progress-label">0 / 0 unlocked</span>
     </div>
 
     <div class="filter-row">
@@ -66,9 +64,7 @@
 
     <div id="filter-toast" class="filter-toast hidden"></div>
 
-    <div class="gallery-grid" id="gallery-grid">
-      <!-- cards injected by app.js -->
-    </div>
+    <div class="gallery-grid" id="gallery-grid"></div>
   </section>
 
   <!-- ============================================================
@@ -127,8 +123,7 @@
   </section>
 
   <!-- ============================================================
-       LIBRARY SCREEN (low-end-device friendly: no camera, no 3D,
-       just artwork photos + descriptions, independent of lock state)
+       LIBRARY SCREEN
        ============================================================ -->
   <section id="screen-library" class="screen hidden">
     <div class="detail-topbar">
@@ -139,7 +134,7 @@
         <p class="eyebrow">Low-Data Mode</p>
         <h2>Artwork Library</h2>
         <p class="detail-text">Browse every artwork's photo and description here — no camera or 3D required. Handy on lower-end devices or slow connections.</p>
-        <div id="library-list" class="library-list"><!-- injected by app.js --></div>
+        <div id="library-list" class="library-list"></div>
       </div>
     </div>
   </section>
@@ -163,98 +158,6 @@
           </div>
           <span class="settings-arrow">›</span>
         </div>
-
-        <div class="settings-row" id="settings-admin">
-          <div>
-            <h4>Admin Login</h4>
-            <p>Manage leaderboard entries and guestbook notes.</p>
-          </div>
-          <span class="settings-arrow">›</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================================
-       ADMIN LOGIN + ADMIN PANEL
-       ============================================================ -->
-  <section id="screen-admin-login" class="screen hidden">
-    <div class="detail-topbar">
-      <button id="btn-admin-login-back" class="btn-icon">← Back</button>
-    </div>
-    <div class="detail-scroll">
-      <div class="detail-body">
-        <p class="eyebrow">Restricted</p>
-        <h2>Admin Login</h2>
-        <p class="detail-text">
-          Note: this is a simple prototype-level lock, not real security — anyone who reads the
-          site's source code can see how it works. Don't rely on this to protect anything sensitive.
-        </p>
-        <input id="admin-password-input" class="text-input" type="password" placeholder="Admin password" />
-        <p id="admin-login-error" class="admin-error hidden">Incorrect password.</p>
-        <button id="btn-admin-login-submit" class="btn-primary">Log In</button>
-      </div>
-    </div>
-  </section>
-
-  <section id="screen-admin-panel" class="screen hidden">
-    <div class="detail-topbar">
-      <button id="btn-admin-panel-back" class="btn-icon">← Back</button>
-      <span class="quiz-progress">Admin Mode</span>
-    </div>
-    <div class="detail-scroll">
-      <div class="detail-body">
-
-        <p class="eyebrow">Active Right Now</p>
-        <div class="active-now-banner">
-          <span class="active-now-dot"></span>
-          <span id="stat-active-now" class="active-now-value">—</span>
-          <span class="active-now-label">people on the site</span>
-        </div>
-
-        <div class="admin-section-header" style="margin-top:22px;">
-          <p class="eyebrow" style="margin:0;">Site Visits</p>
-          <div class="visits-filter" id="visits-filter">
-            <button class="filter-tab active" data-range="week">This Week</button>
-            <button class="filter-tab" data-range="lastweek">Last Week</button>
-            <button class="filter-tab" data-range="month">This Month</button>
-            <button class="filter-tab" data-range="all">All Time</button>
-          </div>
-        </div>
-        <div id="visits-chart" class="visits-chart"></div>
-        <p id="visits-chart-total" class="visits-chart-total">—</p>
-
-        <p class="eyebrow" style="margin-top:26px;">Collection Summary</p>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <span id="stat-leaderboard-count" class="stat-value">—</span>
-            <span class="stat-label">Leaderboard Entries</span>
-          </div>
-          <div class="stat-card">
-            <span id="stat-notes-count" class="stat-value">—</span>
-            <span class="stat-label">Guestbook Notes</span>
-          </div>
-        </div>
-
-        <div class="admin-section-header">
-          <p class="eyebrow" style="margin:0;">Leaderboard Entries</p>
-          <div class="admin-section-actions">
-            <button id="btn-export-leaderboard" class="btn-tiny">Export</button>
-            <button id="btn-clear-leaderboard" class="btn-tiny danger">Clear All</button>
-          </div>
-        </div>
-        <div id="admin-leaderboard-list" class="admin-list"></div>
-
-        <div class="admin-section-header" style="margin-top:26px;">
-          <p class="eyebrow" style="margin:0;">Guestbook Notes</p>
-          <div class="admin-section-actions">
-            <button id="btn-export-notes" class="btn-tiny">Export</button>
-            <button id="btn-clear-notes" class="btn-tiny danger">Clear All</button>
-          </div>
-        </div>
-        <div id="admin-notes-list" class="admin-list"></div>
-
-        <button id="btn-refresh-admin" class="btn-secondary" style="width:100%; margin-top:22px;">↻ Refresh Data</button>
       </div>
     </div>
   </section>
@@ -271,13 +174,13 @@
         <p class="eyebrow">Your Progress</p>
         <h2>Badges</h2>
         <p class="detail-text">Complete actions around the gallery to earn badges. Collect them all to unlock the guestbook on the Leaderboard tab.</p>
-        <div id="badges-grid" class="badges-grid"><!-- injected by app.js --></div>
+        <div id="badges-grid" class="badges-grid"></div>
       </div>
     </div>
   </section>
 
   <!-- ============================================================
-       LEADERBOARD SCREEN (top half: ranking, bottom half: notes)
+       LEADERBOARD SCREEN
        ============================================================ -->
   <section id="screen-leaderboard" class="screen hidden">
     <div class="detail-topbar">
@@ -309,7 +212,7 @@
   </section>
 
   <!-- ============================================================
-       BOTTOM NAVIGATION (Artworks / AR Camera / Leaderboard)
+       BOTTOM NAVIGATION
        ============================================================ -->
   <nav id="bottom-nav" class="bottom-nav hidden">
     <button class="nav-btn active" data-tab="home">
@@ -324,7 +227,7 @@
   </nav>
 
   <!-- ============================================================
-       LIBRARY DETAIL POPUP (full description + picture)
+       LIBRARY DETAIL POPUP
        ============================================================ -->
   <div id="library-detail-modal" class="modal-overlay hidden">
     <div class="modal-card library-detail-card">
@@ -364,7 +267,7 @@
   </div>
 
   <!-- ============================================================
-       NOTE EDITOR MODAL (type or draw, pick a color, post/edit/delete)
+       NOTE EDITOR MODAL
        ============================================================ -->
   <div id="note-editor-modal" class="modal-overlay hidden">
     <div class="modal-card note-editor-card">
@@ -407,7 +310,7 @@
   </div>
 
   <!-- ============================================================
-       NOTE VIEW MODAL (read-only, for viewing someone else's note)
+       NOTE VIEW MODAL
        ============================================================ -->
   <div id="note-view-modal" class="modal-overlay hidden">
     <div class="modal-card">
@@ -476,6 +379,6 @@
     <p>Please allow camera access and reload. This must be opened over HTTPS (or localhost) on your device.</p>
   </div>
 
-  <script src="app.js?v=18" defer></script>
+  <script src="app.js?v=19" defer></script>
 </body>
 </html>
