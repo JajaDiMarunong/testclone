@@ -226,16 +226,19 @@ btnAiSubmit.addEventListener("click", async () => {
             role: "system",
             content: `You are a museum cataloging assistant. The user pasted information about an artwork. Extract the following fields and return ONLY a valid JSON object with these exact keys: title, artist, year, location, description.
 
-Rules:
-- If a field cannot be determined from the text, use null (not empty string).
-- The description should be a concise but informative paragraph (2-4 sentences) about the artwork, written in your own words based on the provided info.
-- Do not include markdown formatting, explanations, or anything outside the JSON object.
-- Example output: {"title":"The Starry Night","artist":"Vincent van Gogh","year":"1889","location":"MoMA, New York","description":"A swirling night sky over a village, painted by Van Gogh in 1889. One of the most recognized works in Western art."}`,
+CRITICAL RULES:
+1. Return ONLY the JSON object. No markdown, no explanations, no text before or after.
+2. The description must be 2-3 sentences maximum. Keep it short so the JSON fits in the response.
+3. If a field cannot be determined, use null.
+4. The JSON must be complete and valid — do not cut it off.
+
+Example output:
+{"title":"The Starry Night","artist":"Vincent van Gogh","year":"1889","location":"MoMA, New York","description":"A swirling night sky over a village, painted by Van Gogh in 1889. One of the most recognized works in Western art."}`,
           },
           { role: "user", content: query },
         ],
         temperature: 0.3,
-        max_tokens: 400,
+        max_tokens: 1200,
       }),
     });
 
