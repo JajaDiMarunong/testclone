@@ -574,7 +574,7 @@ btnLibraryDetailClose.addEventListener("click", () => libraryDetailModal.classLi
 // KUYA DAVON — AI CHAT (Groq API)
 // =====================================================================
 const GROQ_API_KEY = "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";
-const GROQ_MODEL = "llama-3.1-8b-instant";
+const GROQ_MODEL = "openai/gpt-oss-20b";
 
 const MUSEUM_NAME = "Geronimo Berenguer de los Reyes (GBR), Jr. Museum";
 const MUSEUM_LOCATION = "General Trias, Philippines";
