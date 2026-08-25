@@ -4,7 +4,7 @@
 const FIREBASE_URL = "https://gbrmuseumtest-default-rtdb.asia-southeast1.firebasedatabase.app";
 const ADMIN_PASSWORD = "GBRMu5281";
 const GROQ_API_KEY = "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";
-const GROQ_MODEL = "llama-3.1-8b-instant";
+const GROQ_MODEL = "openai/gpt-oss-20b";
 
 // -------------------------------------------------------------------
 // Built-in artworks
