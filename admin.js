@@ -69,12 +69,13 @@ const adminLeaderboardList = document.getElementById("admin-leaderboard-list");
 const adminNotesList = document.getElementById("admin-notes-list");
 const adminArtworksList = document.getElementById("admin-artworks-list");
 
-// AI Assistant refs
-const aiAssistantEnabled = document.getElementById("ai-assistant-enabled");
-const aiAssistantPanel = document.getElementById("ai-assistant-panel");
-const aiQueryInput = document.getElementById("ai-query-input");
-const btnAiFill = document.getElementById("btn-ai-fill");
-const aiStatus = document.getElementById("ai-status");
+// AI Modal refs
+const aiModal = document.getElementById("ai-modal");
+const aiPasteInput = document.getElementById("ai-paste-input");
+const btnAiSubmit = document.getElementById("btn-ai-submit");
+const btnAiCancel = document.getElementById("btn-ai-cancel");
+const btnOpenAiModal = document.getElementById("btn-open-ai-modal");
+const aiModalStatus = document.getElementById("ai-modal-status");
 
 // Form refs
 const imageUploadZone = document.getElementById("image-upload-zone");
@@ -84,7 +85,7 @@ const uploadPlaceholder = document.getElementById("upload-placeholder");
 const btnUploadArtwork = document.getElementById("btn-upload-artwork");
 const uploadStatus = document.getElementById("upload-status");
 
-// Date filter refs
+// Date filter refs — Leaderboard
 const lbDateFilter = document.getElementById("lb-date-filter");
 const lbCustomRange = document.getElementById("lb-custom-range");
 const lbDateFrom = document.getElementById("lb-date-from");
@@ -92,6 +93,7 @@ const lbDateTo = document.getElementById("lb-date-to");
 const lbApplyCustom = document.getElementById("lb-apply-custom");
 const lbFilterCount = document.getElementById("lb-filter-count");
 
+// Date filter refs — Notes
 const notesDateFilter = document.getElementById("notes-date-filter");
 const notesCustomRange = document.getElementById("notes-custom-range");
 const notesDateFrom = document.getElementById("notes-date-from");
@@ -151,23 +153,31 @@ async function loadAllData() {
 }
 
 // =====================================================================
-// AI ASSISTANT — Auto-fill artwork upload fields
+// AI ASSISTANT POPUP MODAL
 // =====================================================================
-aiAssistantEnabled.addEventListener("change", () => {
-  aiAssistantPanel.classList.toggle("hidden", !aiAssistantEnabled.checked);
+btnOpenAiModal.addEventListener("click", () => {
+  aiPasteInput.value = "";
+  aiModalStatus.textContent = "";
+  aiModalStatus.className = "ai-status";
+  aiModal.classList.remove("hidden");
+  aiPasteInput.focus();
 });
 
-btnAiFill.addEventListener("click", async () => {
-  const query = aiQueryInput.value.trim();
+btnAiCancel.addEventListener("click", () => {
+  aiModal.classList.add("hidden");
+});
+
+btnAiSubmit.addEventListener("click", async () => {
+  const query = aiPasteInput.value.trim();
   if (!query) {
-    aiStatus.textContent = "Please describe the artwork first.";
-    aiStatus.className = "ai-status error";
+    aiModalStatus.textContent = "Please paste some info about the artwork first.";
+    aiModalStatus.className = "ai-status error";
     return;
   }
 
-  aiStatus.textContent = "Thinking…";
-  aiStatus.className = "ai-status";
-  btnAiFill.disabled = true;
+  aiModalStatus.textContent = "Thinking…";
+  aiModalStatus.className = "ai-status";
+  btnAiSubmit.disabled = true;
 
   try {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -181,12 +191,12 @@ btnAiFill.addEventListener("click", async () => {
         messages: [
           {
             role: "system",
-            content: `You are a museum cataloging assistant. The user will describe an artwork. You must extract the following fields and return ONLY a valid JSON object with these exact keys: title, artist, year, location, description.
+            content: `You are a museum cataloging assistant. The user pasted information about an artwork. Extract the following fields and return ONLY a valid JSON object with these exact keys: title, artist, year, location, description.
 
 Rules:
-- If a field cannot be determined, use null (not empty string).
-- The description should be a concise but informative paragraph (2-4 sentences) about the artwork.
-- Do not include markdown, explanations, or anything outside the JSON.
+- If a field cannot be determined from the text, use null (not empty string).
+- The description should be a concise but informative paragraph (2-4 sentences) about the artwork, written in your own words based on the provided info.
+- Do not include markdown formatting, explanations, or anything outside the JSON object.
 - Example output: {"title":"The Starry Night","artist":"Vincent van Gogh","year":"1889","location":"MoMA, New York","description":"A swirling night sky over a village, painted by Van Gogh in 1889. One of the most recognized works in Western art."}`,
           },
           { role: "user", content: query },
@@ -200,7 +210,7 @@ Rules:
     const data = await res.json();
     const raw = data.choices?.[0]?.message?.content?.trim() || "";
 
-    // Extract JSON from response (handle possible markdown fences)
+    // Extract JSON from response (handle markdown fences)
     let jsonStr = raw;
     const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fenceMatch) jsonStr = fenceMatch[1].trim();
@@ -214,14 +224,20 @@ Rules:
     if (parsed.location !== undefined) document.getElementById("artwork-location").value = parsed.location || "";
     if (parsed.description) document.getElementById("artwork-details").value = parsed.description;
 
-    aiStatus.textContent = "Fields filled! Review and upload when ready.";
-    aiStatus.className = "ai-status success";
+    aiModalStatus.textContent = "Fields filled! You can close this and review.";
+    aiModalStatus.className = "ai-status success";
+
+    // Auto-close after a short delay so user sees the success message
+    setTimeout(() => {
+      aiModal.classList.add("hidden");
+    }, 1200);
+
   } catch (err) {
     console.error("AI fill error:", err);
-    aiStatus.textContent = "Could not parse result. Try a clearer description.";
-    aiStatus.className = "ai-status error";
+    aiModalStatus.textContent = "Could not parse result. Try pasting clearer info.";
+    aiModalStatus.className = "ai-status error";
   } finally {
-    btnAiFill.disabled = false;
+    btnAiSubmit.disabled = false;
   }
 });
 
@@ -365,13 +381,13 @@ visitsFilter.addEventListener("click", (e) => {
 });
 
 // =====================================================================
-// DATE FILTERING UTILITIES
+// DATE FILTERING
 // =====================================================================
 function getDateRange(filterValue, customFrom, customTo) {
   const now = new Date();
   const DAY = 24 * 60 * 60 * 1000;
   let start = 0;
-  let end = Date.now();
+  let end = Infinity;
 
   switch (filterValue) {
     case "today": {
@@ -421,7 +437,8 @@ function getDateRange(filterValue, customFrom, customTo) {
   return { start, end };
 }
 
-function filterByDate(entries, filterValue, customFrom, customTo) {
+function filterEntriesByDate(entries, filterValue, customFrom, customTo) {
+  if (filterValue === "all") return entries;
   const { start, end } = getDateRange(filterValue, customFrom, customTo);
   return entries.filter(([, e]) => {
     const ts = e.timestamp || 0;
@@ -450,33 +467,40 @@ function renderLeaderboardList() {
   const customFrom = lbDateFrom.value;
   const customTo = lbDateTo.value;
 
-  const filtered = filterByDate(cachedLeaderboard, filterValue, customFrom, customTo);
+  const filtered = filterEntriesByDate(cachedLeaderboard, filterValue, customFrom, customTo);
 
-  lbFilterCount.textContent = filtered.length > 0 ? `${filtered.length} result${filtered.length === 1 ? "" : "s"}` : "";
+  lbFilterCount.textContent = filtered.length > 0
+    ? `${filtered.length} result${filtered.length === 1 ? "" : "s"}`
+    : "No results";
 
-  adminLeaderboardList.innerHTML = filtered.length
-    ? filtered
-        .map(
-          ([key, e]) => `
-      <div class="admin-row">
-        <div class="admin-row-info">
-          <div class="admin-row-name">${escapeHtml(e.name || "Anonymous")} — ${formatTime(e.time)}</div>
-          <div class="admin-row-date">${formatDateFull(e.timestamp)}</div>
-        </div>
-        <button class="admin-delete-btn" data-path="leaderboard/${key}" data-label="this leaderboard entry">Delete</button>
-      </div>`
-        )
-        .join("")
-    : `<p class="leaderboard-status">No entries match this date filter.</p>`;
+  if (filtered.length === 0) {
+    adminLeaderboardList.innerHTML = `<p class="leaderboard-status">No entries match this date filter.</p>`;
+    return;
+  }
+
+  adminLeaderboardList.innerHTML = filtered
+    .map(
+      ([key, e]) => `
+    <div class="admin-row">
+      <div class="admin-row-info">
+        <div class="admin-row-name">${escapeHtml(e.name || "Anonymous")} — ${formatTime(e.time)}</div>
+        <div class="admin-row-date">${formatDateFull(e.timestamp)}</div>
+      </div>
+      <button class="admin-delete-btn" data-path="leaderboard/${key}" data-label="this leaderboard entry">Delete</button>
+    </div>`
+    )
+    .join("");
 
   attachDeleteHandlers();
 }
 
 // Leaderboard date filter events
 lbDateFilter.addEventListener("change", () => {
-  lbCustomRange.classList.toggle("hidden", lbDateFilter.value !== "custom");
+  const isCustom = lbDateFilter.value === "custom";
+  lbCustomRange.classList.toggle("hidden", !isCustom);
   renderLeaderboardList();
 });
+
 lbApplyCustom.addEventListener("click", renderLeaderboardList);
 
 // =====================================================================
@@ -500,36 +524,43 @@ function renderNotesList() {
   const customFrom = notesDateFrom.value;
   const customTo = notesDateTo.value;
 
-  const filtered = filterByDate(cachedNotes, filterValue, customFrom, customTo);
+  const filtered = filterEntriesByDate(cachedNotes, filterValue, customFrom, customTo);
 
-  notesFilterCount.textContent = filtered.length > 0 ? `${filtered.length} result${filtered.length === 1 ? "" : "s"}` : "";
+  notesFilterCount.textContent = filtered.length > 0
+    ? `${filtered.length} result${filtered.length === 1 ? "" : "s"}`
+    : "No results";
+
+  if (filtered.length === 0) {
+    adminNotesList.innerHTML = `<p class="leaderboard-status">No notes match this date filter.</p>`;
+    return;
+  }
 
   const typeIcon = { text: "📝", draw: "🎨", photo: "📷" };
 
-  adminNotesList.innerHTML = filtered.length
-    ? filtered
-        .map(
-          ([key, n]) => `
-      <div class="admin-row">
-        <div class="admin-row-info">
-          <div class="admin-row-name">${typeIcon[n.type] || "📝"} ${escapeHtml(n.name || "Anonymous")}</div>
-          <div class="admin-row-meta">${!n.type || n.type === "text" ? escapeHtml((n.text || "").slice(0, 40)) : `(${n.type})`}</div>
-          <div class="admin-row-date">${formatDateFull(n.timestamp)}</div>
-        </div>
-        <button class="admin-delete-btn" data-path="notes/${key}" data-label="this note">Delete</button>
-      </div>`
-        )
-        .join("")
-    : `<p class="leaderboard-status">No notes match this date filter.</p>`;
+  adminNotesList.innerHTML = filtered
+    .map(
+      ([key, n]) => `
+    <div class="admin-row">
+      <div class="admin-row-info">
+        <div class="admin-row-name">${typeIcon[n.type] || "📝"} ${escapeHtml(n.name || "Anonymous")}</div>
+        <div class="admin-row-meta">${!n.type || n.type === "text" ? escapeHtml((n.text || "").slice(0, 40)) : `(${n.type})`}</div>
+        <div class="admin-row-date">${formatDateFull(n.timestamp)}</div>
+      </div>
+      <button class="admin-delete-btn" data-path="notes/${key}" data-label="this note">Delete</button>
+    </div>`
+    )
+    .join("");
 
   attachDeleteHandlers();
 }
 
 // Notes date filter events
 notesDateFilter.addEventListener("change", () => {
-  notesCustomRange.classList.toggle("hidden", notesDateFilter.value !== "custom");
+  const isCustom = notesDateFilter.value === "custom";
+  notesCustomRange.classList.toggle("hidden", !isCustom);
   renderNotesList();
 });
+
 notesApplyCustom.addEventListener("click", renderNotesList);
 
 // =====================================================================
