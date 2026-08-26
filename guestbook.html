@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>GBR Museum — Guestbook & Leaderboard</title>
+<link rel="stylesheet" href="guestbook.css" />
+</head>
+<body>
+
+  <div class="gb-container">
+    <header class="gb-header">
+      <div>
+        <p class="eyebrow">GBR Jr. Museum</p>
+        <h1>Guestbook & Leaderboard</h1>
+      </div>
+      <a href="index.html" class="btn-secondary btn-small">← Back to App</a>
+    </header>
+
+    <div class="gb-layout">
+      <!-- LEFT: Notes Board -->
+      <div class="gb-notes-section">
+        <div class="gb-section-header">
+          <p class="eyebrow" style="margin:0;">Guestbook Board</p>
+          <div class="gb-board-controls">
+            <button id="btn-board-zoom-out" class="board-zoom-btn">−</button>
+            <button id="btn-board-zoom-reset" class="board-zoom-btn">⤢ Fit</button>
+            <button id="btn-board-zoom-in" class="board-zoom-btn">+</button>
+          </div>
+        </div>
+        <div id="notes-board-wrap" class="notes-board-wrap">
+          <div id="notes-board" class="notes-board"></div>
+        </div>
+        <p id="notes-count" class="gb-count"></p>
+      </div>
+
+      <!-- RIGHT: Leaderboard -->
+      <div class="gb-leaderboard-section">
+        <div class="gb-section-header">
+          <p class="eyebrow" style="margin:0;">Leaderboard</p>
+        </div>
+
+        <div class="date-filter-bar">
+          <span class="date-filter-label">Filter:</span>
+          <select id="lb-date-filter" class="date-select">
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="week">This Week</option>
+            <option value="lastweek">Last Week</option>
+            <option value="month">This Month</option>
+            <option value="lastmonth">Last Month</option>
+          </select>
+          <span id="lb-filter-count" class="filter-count"></span>
+        </div>
+
+        <div id="leaderboard-list" class="leaderboard-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Note View Modal -->
+  <div id="note-view-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div id="note-view-content" class="note-view-content"></div>
+      <p id="note-view-name" class="modal-desc">—</p>
+      <div class="modal-actions">
+        <button id="btn-note-view-close" class="btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="guestbook.js"></script>
+</body>
+</html>
