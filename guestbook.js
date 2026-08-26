@@ -196,12 +196,12 @@ function renderNotesBoard() {
   notesBoard.innerHTML = "";
   const placed = [];
 
+  // Always recalculate positions for TV display — ignore stored x/y
+  // since they were calculated for a different board size / note size
   allNotesCache.forEach((note, idx) => {
-    if (note.x == null || note.y == null) {
-      const pos = findNonOverlappingPosition(placed);
-      note.x = pos.x;
-      note.y = pos.y;
-    }
+    const pos = findNonOverlappingPosition(placed);
+    note.x = pos.x;
+    note.y = pos.y;
     placed.push({ x: note.x, y: note.y });
 
     const el = document.createElement("div");
