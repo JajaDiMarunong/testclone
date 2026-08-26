@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>GBR AR Collection</title>
+<title>Museum AR Collection</title>
 <link rel="stylesheet" href="style.css?v=19" />
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js" defer></script>
@@ -46,7 +46,7 @@
 
     <header class="home-header">
       <p class="eyebrow">Gallery Prototype</p>
-      <h1>GBR Collections</h1>
+      <h1>Museum AR Collection</h1>
       <p class="sub">Scan artworks on display to unlock their hidden stories.</p>
     </header>
 
@@ -188,7 +188,10 @@
     </div>
     <div class="leaderboard-split">
       <div class="leaderboard-half">
-        <p class="eyebrow">Fastest Completions</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <p class="eyebrow" style="margin:0;">Fastest Completions</p>
+          <a href="guestbook.html" class="btn-tiny" style="text-decoration:none;display:inline-flex;align-items:center;">📋 Full View →</a>
+        </div>
         <div id="leaderboard-list" class="leaderboard-list">
           <p class="leaderboard-status">Loading…</p>
         </div>
