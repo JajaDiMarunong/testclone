@@ -872,11 +872,23 @@ async function submitLeaderboardEntry(name, timeSeconds) {
 // GUESTBOOK BOARD
 // =====================================================================
 const NOTE_COLORS = ["#f4d35e", "#f2a19b", "#a8d5ba", "#9fc6e0", "#c9a8d8", "#f4f1ea"];
-const DEFAULT_BOARD_SCALE = 0.5;
+const BOARD_WIDTH = 1200;
+const BOARD_HEIGHT = 800;
 let allNotesCache = [];
-let boardScale = DEFAULT_BOARD_SCALE;
+let boardScale = 1;
 let boardX = 0;
 let boardY = 0;
+
+function fitNotesBoardToViewport() {
+  const wrapW = notesBoardWrap.clientWidth;
+  const wrapH = notesBoardWrap.clientHeight;
+  const scaleX = wrapW / BOARD_WIDTH;
+  const scaleY = wrapH / BOARD_HEIGHT;
+  boardScale = Math.min(scaleX, scaleY, 1);
+  boardX = 0;
+  boardY = 0;
+  applyBoardTransform();
+}
 let editingMode = "text";
 let selectedColor = NOTE_COLORS[0];
 let hasDrawing = false;
@@ -895,16 +907,65 @@ async function loadNotesBoard() {
       ? Object.entries(data).map(([deviceId, note]) => ({ ...note, deviceId }))
       : [];
     renderNotesBoard();
-    applyBoardTransform();
+    fitNotesBoardToViewport();
     updateNewNoteButton();
   } catch (err) {
     notesBoard.innerHTML = `<p class="leaderboard-status" style="padding:10px;">Couldn't load the guestbook. Check your connection or the Firebase database rules.</p>`;
   }
 }
 
+const NOTE_W = 140;
+const NOTE_H = 160;
+const NOTE_MARGIN = 16;
+
+function findNonOverlappingPosition(existingNotes) {
+  const occupied = existingNotes.map((n) => ({
+    x: n.x, y: n.y,
+    w: NOTE_W + NOTE_MARGIN, h: NOTE_H + NOTE_MARGIN,
+  }));
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const x = 20 + Math.random() * (BOARD_WIDTH - NOTE_W - 40);
+    const y = 20 + Math.random() * (BOARD_HEIGHT - NOTE_H - 40);
+    let overlaps = false;
+    for (const o of occupied) {
+      if (x < o.x + o.w && x + NOTE_W + NOTE_MARGIN > o.x &&
+          y < o.y + o.h && y + NOTE_H + NOTE_MARGIN > o.y) {
+        overlaps = true; break;
+      }
+    }
+    if (!overlaps) return { x, y };
+  }
+  const cols = Math.floor((BOARD_WIDTH - 40) / (NOTE_W + NOTE_MARGIN));
+  const rows = Math.floor((BOARD_HEIGHT - 40) / (NOTE_H + NOTE_MARGIN));
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = 20 + c * (NOTE_W + NOTE_MARGIN);
+      const y = 20 + r * (NOTE_H + NOTE_MARGIN);
+      let overlaps = false;
+      for (const o of occupied) {
+        if (x < o.x + o.w && x + NOTE_W + NOTE_MARGIN > o.x &&
+            y < o.y + o.h && y + NOTE_H + NOTE_MARGIN > o.y) {
+          overlaps = true; break;
+        }
+      }
+      if (!overlaps) return { x, y };
+    }
+  }
+  return { x: 20 + Math.random() * (BOARD_WIDTH - NOTE_W - 40), y: 20 + Math.random() * (BOARD_HEIGHT - NOTE_H - 40) };
+}
+
 function renderNotesBoard() {
   notesBoard.innerHTML = "";
+  const placed = [];
+
   allNotesCache.forEach((note) => {
+    if (note.x == null || note.y == null) {
+      const pos = findNonOverlappingPosition(placed);
+      note.x = pos.x;
+      note.y = pos.y;
+    }
+    placed.push({ x: note.x, y: note.y });
+
     const el = document.createElement("div");
     el.className =
       "note-sticky" +
@@ -998,6 +1059,29 @@ notesBoardWrap.addEventListener(
   { passive: true }
 );
 
+// Mouse drag for desktop
+let mouseDragging = false;
+let mouseLastX = 0;
+let mouseLastY = 0;
+notesBoardWrap.addEventListener("mousedown", (e) => {
+  mouseDragging = true;
+  mouseLastX = e.clientX;
+  mouseLastY = e.clientY;
+  notesBoardWrap.style.cursor = "grabbing";
+});
+window.addEventListener("mousemove", (e) => {
+  if (!mouseDragging) return;
+  boardX += e.clientX - mouseLastX;
+  boardY += e.clientY - mouseLastY;
+  mouseLastX = e.clientX;
+  mouseLastY = e.clientY;
+  applyBoardTransform();
+});
+window.addEventListener("mouseup", () => {
+  mouseDragging = false;
+  notesBoardWrap.style.cursor = "grab";
+});
+
 btnBoardZoomIn.addEventListener("click", () => {
   boardScale = Math.min(2.5, boardScale + 0.2);
   applyBoardTransform();
@@ -1006,12 +1090,7 @@ btnBoardZoomOut.addEventListener("click", () => {
   boardScale = Math.max(0.5, boardScale - 0.2);
   applyBoardTransform();
 });
-btnBoardZoomReset.addEventListener("click", () => {
-  boardScale = DEFAULT_BOARD_SCALE;
-  boardX = 0;
-  boardY = 0;
-  applyBoardTransform();
-});
+btnBoardZoomReset.addEventListener("click", fitNotesBoardToViewport);
 
 // ---- note editor ----
 let editingExistingNote = null;
