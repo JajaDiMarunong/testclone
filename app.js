@@ -250,8 +250,7 @@ function submitUsername() {
     returningToScreenAfterNameChange();
     returningToScreenAfterNameChange = null;
   } else {
-    showHome();
-    bottomNav.classList.remove("hidden");
+    initTutorial();
   }
 }
 
@@ -1673,7 +1672,6 @@ startPresenceHeartbeat();
 // =====================================================================
 // ONBOARDING TUTORIAL
 // =====================================================================
-const TUTORIAL_SEEN_KEY = "museum_tutorial_seen";
 
 const tutorialSlides = [
   {
@@ -1788,7 +1786,6 @@ function prevTutorialSlide() {
 
 function hideTutorial() {
   document.getElementById("tutorial-overlay").classList.add("hidden");
-  localStorage.setItem(TUTORIAL_SEEN_KEY, "true");
   showHome();
   bottomNav.classList.remove("hidden");
 }
