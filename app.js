@@ -1670,7 +1670,154 @@ function startPresenceHeartbeat() {
 
 recordVisit();
 startPresenceHeartbeat();
+// =====================================================================
+// ONBOARDING TUTORIAL
+// =====================================================================
+const TUTORIAL_SEEN_KEY = "museum_tutorial_seen";
 
+const tutorialSlides = [
+  {
+    image: "./assets/tutorial/slide-1.png",
+    title: "Welcome to GBR Jr. Museum!",
+    text: "Get ready for an interactive AR scavenger hunt. Scan artworks, take quizzes, and collect badges along the way. Tap Next to learn how it works!",
+  },
+  {
+    image: "./assets/tutorial/slide-2.png",
+    title: "Open the AR Camera",
+    text: "Tap the 📷 AR Camera button in the bottom navigation to launch the scanner. Make sure you allow camera access when prompted.",
+  },
+  {
+    image: "./assets/tutorial/slide-3.png",
+    title: "Scan an Artwork",
+    text: "Point your camera at any artwork on display. The app will recognize it and unlock its hidden story. Look for the golden viewfinder!",
+  },
+  {
+    image: "./assets/tutorial/slide-4.png",
+    title: "Discover the Story",
+    text: "Once scanned, the artwork unlocks! Read about its history, artist, and significance. You can revisit it anytime from your collection.",
+  },
+  {
+    image: "./assets/tutorial/slide-5.png",
+    title: "Earn Badges & Climb the Board",
+    text: "Collect badges by scanning your first artwork and completing quizzes. Your completion time gets you on the leaderboard — race to the top!",
+  },
+  {
+    image: "./assets/tutorial/slide-6.png",
+    title: "Locked, Unlocked & Quizzes",
+    text: "Locked artworks are hidden until you scan them. Complete ALL quizzes to unlock the guestbook and leave your mark on the board!",
+  },
+  {
+    image: "./assets/tutorial/slide-7.png",
+    title: "Happy Hunting!",
+    text: "Not every artwork is part of the scavenger hunt — some are hidden gems! Do your best, explore every corner, and unlock everything. Good luck!",
+  },
+];
+
+let currentTutorialSlide = 0;
+
+function initTutorial() {
+  renderTutorialSlides();
+  document.getElementById("tutorial-overlay").classList.remove("hidden");
+  currentTutorialSlide = 0;
+  updateTutorialSlide();
+}
+
+function renderTutorialSlides() {
+  const container = document.getElementById("tutorial-slides");
+  const dotsContainer = document.getElementById("tutorial-dots");
+
+  container.innerHTML = tutorialSlides
+    .map(
+      (slide, i) => `
+    <div class="tutorial-slide ${i === 0 ? "active" : ""}" data-index="${i}">
+      <img class="tutorial-slide-img" src="${slide.image}" alt="" onerror="this.style.display='none'" />
+      <h3>${escapeHtml(slide.title)}</h3>
+      <p>${escapeHtml(slide.text)}</p>
+    </div>`
+    )
+    .join("");
+
+  dotsContainer.innerHTML = tutorialSlides
+    .map((_, i) => `<div class="tutorial-dot ${i === 0 ? "active" : ""}" data-index="${i}"></div>`)
+    .join("");
+
+  updateTutorialNav();
+}
+
+function updateTutorialSlide() {
+  const slides = document.querySelectorAll(".tutorial-slide");
+  const dots = document.querySelectorAll(".tutorial-dot");
+
+  slides.forEach((slide, i) => {
+    slide.classList.remove("active", "prev");
+    if (i === currentTutorialSlide) slide.classList.add("active");
+    else if (i < currentTutorialSlide) slide.classList.add("prev");
+  });
+
+  dots.forEach((dot, i) => {
+    dot.classList.toggle("active", i === currentTutorialSlide);
+  });
+
+  updateTutorialNav();
+}
+
+function updateTutorialNav() {
+  const prevBtn = document.getElementById("btn-tutorial-prev");
+  const nextBtn = document.getElementById("btn-tutorial-next");
+
+  prevBtn.classList.toggle("hidden", currentTutorialSlide === 0);
+  nextBtn.textContent =
+    currentTutorialSlide === tutorialSlides.length - 1 ? "Get Started 🎉" : "Next →";
+}
+
+function nextTutorialSlide() {
+  if (currentTutorialSlide < tutorialSlides.length - 1) {
+    currentTutorialSlide++;
+    updateTutorialSlide();
+  } else {
+    hideTutorial();
+  }
+}
+
+function prevTutorialSlide() {
+  if (currentTutorialSlide > 0) {
+    currentTutorialSlide--;
+    updateTutorialSlide();
+  }
+}
+
+function hideTutorial() {
+  document.getElementById("tutorial-overlay").classList.add("hidden");
+  localStorage.setItem(TUTORIAL_SEEN_KEY, "true");
+  showHome();
+  bottomNav.classList.remove("hidden");
+}
+
+// Tutorial controls
+document.getElementById("btn-tutorial-next").addEventListener("click", nextTutorialSlide);
+document.getElementById("btn-tutorial-prev").addEventListener("click", prevTutorialSlide);
+document.getElementById("btn-tutorial-skip").addEventListener("click", hideTutorial);
+
+// Swipe support for mobile
+(function initTutorialSwipe() {
+  const overlay = document.getElementById("tutorial-overlay");
+  let startX = 0;
+
+  overlay.addEventListener("touchstart", (e) => {
+    if (overlay.classList.contains("hidden")) return;
+    startX = e.touches[0].clientX;
+  }, { passive: true });
+
+  overlay.addEventListener("touchend", (e) => {
+    if (overlay.classList.contains("hidden")) return;
+    const endX = e.changedTouches[0].clientX;
+    const diff = startX - endX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) nextTutorialSlide();
+      else prevTutorialSlide();
+    }
+  }, { passive: true });
+})();
 // =====================================================================
 // BOOT
 // =====================================================================
