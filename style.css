@@ -756,3 +756,132 @@ button.corner-fabs-right {
   text-align: center; padding: 30px; gap: 10px;
 }
 .permission-error.hidden { display: none; }
+
+/* ============================================
+   ONBOARDING TUTORIAL
+   ============================================ */
+.tutorial-card {
+  background: var(--panel);
+  border: 1px solid var(--frame-gold-dim);
+  border-radius: 20px;
+  padding: 0;
+  max-width: 360px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.tutorial-skip {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 3;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(244,241,234,0.2);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.tutorial-skip:active {
+  background: rgba(244,241,234,0.15);
+  color: var(--text);
+}
+
+.tutorial-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 0 8px;
+  flex-shrink: 0;
+}
+
+.tutorial-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(244,241,234,0.2);
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+.tutorial-dot.active {
+  background: var(--frame-gold);
+  transform: scale(1.35);
+}
+
+.tutorial-slides {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+
+.tutorial-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 24px 16px;
+  opacity: 0;
+  transform: translateX(30px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  pointer-events: none;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+.tutorial-slide.active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+.tutorial-slide.prev {
+  transform: translateX(-30px);
+}
+
+.tutorial-slide-img {
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 14px;
+  margin-bottom: 18px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(244,241,234,0.1);
+  flex-shrink: 0;
+}
+
+.tutorial-slide h3 {
+  font-size: 18px;
+  margin: 0 0 10px 0;
+  text-align: center;
+  color: var(--frame-gold);
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 600;
+}
+
+.tutorial-slide p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  text-align: center;
+  margin: 0;
+}
+
+.tutorial-nav {
+  display: flex;
+  gap: 10px;
+  padding: 12px 24px 20px;
+  flex-shrink: 0;
+}
+.tutorial-nav .btn-secondary,
+.tutorial-nav .btn-primary {
+  margin-top: 0;
+}
