@@ -881,6 +881,9 @@ button.corner-fabs-right {
   padding: 12px 24px 20px;
   flex-shrink: 0;
 }
+#tutorial-overlay {
+  z-index: 35;
+}
 .tutorial-nav .btn-secondary,
 .tutorial-nav .btn-primary {
   margin-top: 0;
